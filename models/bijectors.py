@@ -1,0 +1,41 @@
+#!/usr/bin/python
+
+"""
+Customized bijectors.
+Code adapted from https://github.com/deepmind/flows_for_atomic_solids
+"""
+
+from typing import Union
+import torch
+from torch import Tensor
+from nflows.transforms import Transform
+
+
+class CircularShift(Transform):
+    """Shift with wrapping around. Or, translation on a torus."""
+
+    def __init__(self,
+                 shift: Tensor,
+                 lower: Union[float, Tensor],
+                 upper: Union[float, Tensor]):
+        if (not torch.is_tensor(lower)) and (not torch.is_tensor(upper)) and (lower >= upper):
+            raise ValueError('`lower` must be less than `upper`.')
+
+        try:
+            width = upper - lower
+        except TypeError as e:
+            raise ValueError('`lower` and `upper` must be broadcastable to same '
+                             f'shape, but `lower`={lower} and `upper`={upper}') from e
+
+        self.wrap = lambda x: torch.remainder(x - lower, width) + lower
+        self.shift = self.wrap(shift)
+
+    def forward(self, inputs, context=None):
+        outputs = self.wrap(inputs + self.shift)
+        logabsdet = torch.zeros_like(inputs)
+        return outputs, logabsdet
+
+    def inverse(self, inputs, context=None):
+        outputs = self.wrap(inputs - self.shift)
+        logabsdet = torch.zeros_like(inputs)
+        return outputs, logabsdet

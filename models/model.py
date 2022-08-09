@@ -1,0 +1,62 @@
+#!/usr/bin/python
+
+"""
+Model producer.
+Code adapted from https://github.com/deepmind/flows_for_atomic_solids
+"""
+
+from typing import Mapping, Any, Tuple
+from nflows.flows import Flow
+from torch.nn import Sequential
+
+
+def make_model(num_atoms: int,
+               lower: float,
+               upper: float,
+               bijector: Mapping[str, Any],
+               base: Mapping[str, Any],
+               coord_trans: Mapping[str, Any],
+               energy_layer: Mapping[str, Any]
+               ) -> Tuple[Flow, Sequential]:
+    """Constructs a IDP model, with various configuration options.
+
+    The model is implemented as follows:
+    1. We draw N conformers randomly from a base distribution.
+       All conformers have the same backbone but different dihedral angles.
+    2. We jointly transform the dihedral angles with a flow (a nflow bijector).
+
+    Args:
+      num_atoms: number of atoms.
+      lower: float, the lower ranges of the angle.
+      upper: float, the upper ranges of the angle.
+      bijector: configures the bijector that transforms angles. Expected to
+        have the following keys:
+        * 'constructor': a callable that creates the bijector.
+        * 'kwargs': keyword arguments to pass to the constructor.
+      base: configures the base distribution. Expected to have the following keys:
+        * 'constructor': a callable that creates the base distribution.
+        * 'kwargs': keyword arguments to pass to the constructor.
+
+    Returns:
+      A particle model.
+    """
+    base_model = base['constructor'](
+        num_particles=num_atoms,
+        **base['kwargs'])
+    bij = bijector['constructor'](
+        angles=base_model.torsion_angles,
+        lower=lower,
+        upper=upper,
+        **bijector['kwargs'])
+
+    model = Flow(bij, base_model)
+
+    trans = coord_trans['constructor'](
+        mol=base_model.mol,
+        angles=base_model.torsion_angles)
+    energy = energy_layer['constructor'](
+        mol=base_model.mol)
+
+    energy_fn = Sequential(trans, energy)
+
+    return model, energy_fn
