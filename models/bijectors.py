@@ -5,7 +5,7 @@ Customized bijectors.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 """
 
-from typing import Union
+from typing import Union, Tuple
 import torch
 from torch import Tensor
 from nflows.transforms import Transform
@@ -18,6 +18,7 @@ class CircularShift(Transform):
                  shift: Tensor,
                  lower: Union[float, Tensor],
                  upper: Union[float, Tensor]):
+        super().__init__()
         if (not torch.is_tensor(lower)) and (not torch.is_tensor(upper)) and (lower >= upper):
             raise ValueError('`lower` must be less than `upper`.')
 
@@ -30,12 +31,12 @@ class CircularShift(Transform):
         self.wrap = lambda x: torch.remainder(x - lower, width) + lower
         self.shift = self.wrap(shift)
 
-    def forward(self, inputs, context=None):
+    def forward(self, inputs: Tensor, context=None) -> Tuple[Tensor, Tensor]:
         outputs = self.wrap(inputs + self.shift)
         logabsdet = torch.zeros_like(inputs)
         return outputs, logabsdet
 
-    def inverse(self, inputs, context=None):
+    def inverse(self, inputs: Tensor, context=None) -> Tuple[Tensor, Tensor]:
         outputs = self.wrap(inputs - self.shift)
         logabsdet = torch.zeros_like(inputs)
         return outputs, logabsdet

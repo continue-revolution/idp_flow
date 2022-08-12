@@ -10,14 +10,14 @@ from nflows.flows import Flow
 from torch.nn import Sequential
 
 
-def make_model(num_atoms: int,
-               lower: float,
-               upper: float,
-               bijector: Mapping[str, Any],
-               base: Mapping[str, Any],
-               coord_trans: Mapping[str, Any],
-               energy_layer: Mapping[str, Any]
-               ) -> Tuple[Flow, Sequential]:
+def make_model(
+    lower: float,
+    upper: float,
+    bijector: Mapping[str, Any],
+    base: Mapping[str, Any],
+    coord_trans: Mapping[str, Any],
+    energy_layer: Mapping[str, Any]
+) -> Tuple[Flow, Sequential]:
     """Constructs a IDP model, with various configuration options.
 
     The model is implemented as follows:
@@ -26,7 +26,6 @@ def make_model(num_atoms: int,
     2. We jointly transform the dihedral angles with a flow (a nflow bijector).
 
     Args:
-      num_atoms: number of atoms.
       lower: float, the lower ranges of the angle.
       upper: float, the upper ranges of the angle.
       bijector: configures the bijector that transforms angles. Expected to
@@ -41,7 +40,6 @@ def make_model(num_atoms: int,
       A particle model.
     """
     base_model = base['constructor'](
-        num_particles=num_atoms,
         **base['kwargs'])
     bij = bijector['constructor'](
         angles=base_model.torsion_angles,

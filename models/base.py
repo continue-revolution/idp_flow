@@ -87,4 +87,4 @@ class Base(StandardNormal):
             self.mol, nonBondedThresh=10., )
         self.torsion_angles, _ = get_torsion_tuples(self.mol)
         self.torsion_angles = torch.tensor(self.torsion_angles)
-        super.__init__(shape=self.torsion_angles.shape)
+        super().__init__(shape=[self.torsion_angles.shape[0]])

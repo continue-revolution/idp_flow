@@ -8,6 +8,7 @@ Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 from typing import Mapping, Any
 import torch
 from torch import Tensor
+from torch.nn import Parameter
 from nflows.transforms import CompositeTransform
 from models.bijectors import CircularShift
 from models.split import SplitCoupling
@@ -22,7 +23,7 @@ def make_split_coupling_flow(
     num_bins: int,
     conditioner: Mapping[str, Any],
     use_circular_shift: bool,
-    circular_shift_init: function = torch.zeros,
+    circular_shift_init=torch.zeros,
 ) -> CompositeTransform:
     """Create a flow that consists of a sequence of split coupling layers.
 
@@ -65,11 +66,8 @@ def make_split_coupling_flow(
 
         # Circular shift.
         if use_circular_shift:
-            shift = torch.nn.Parameter(
-                name='circular_shift',
-                param_name='shift',
-                shape=(1),
-                init=circular_shift_init)()
+            shift = Parameter(
+                data=circular_shift_init(size=(1, )))
             shift_layer = CircularShift(
                 (upper - lower) * shift, lower, upper)
             sublayers.append(shift_layer)
@@ -82,6 +80,7 @@ def make_split_coupling_flow(
                 num_bijector_params=3 * num_bins + 1,
                 lower=lower,
                 upper=upper,
+                angles=angles,
                 **conditioner['kwargs'])
         )
         sublayers.append(coupling_layer)

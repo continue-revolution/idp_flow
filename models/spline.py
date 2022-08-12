@@ -46,15 +46,13 @@ def _rational_quadratic_spline_fwd(x: Tensor,
                                    knot_slopes: Tensor) -> Tuple[Tensor, Tensor]:
     """Applies a rational-quadratic spline to a scalar.
     Args:
-      x: a scalar (0-dimensional array). The scalar `x` can be any real number; it
-        will be transformed by the spline if it's in the closed interval
-        `[x_pos[0], x_pos[-1]]`, and it will be transformed linearly if it's
-        outside that interval.
-      x_pos: array of shape [num_bins + 1], the bin boundaries on the x axis.
-      y_pos: array of shape [num_bins + 1], the bin boundaries on the y axis.
-      knot_slopes: array of shape [num_bins + 1], the slopes at the knot points.
+      x: a Tensor of shape N * D, where N is the batch size,
+         D is the number of torsion angles in each conformer.
+      x_pos: array of shape [D, num_bins + 1], the bin boundaries on the x axis.
+      y_pos: array of shape [D, num_bins + 1], the bin boundaries on the y axis.
+      knot_slopes: array of shape [D, num_bins + 1], the slopes at the knot points.
     Returns:
-      A tuple of two scalars: the output of the transformation and the log of the
+      A tuple of two Tensors: the output of the transformation and the log of the
       absolute first derivative at `x`.
     """
     # Search to find the right bin. NOTE: The bins are sorted, so we could use
@@ -154,15 +152,13 @@ def _rational_quadratic_spline_inv(y: Tensor,
                                    knot_slopes: Tensor) -> Tuple[Tensor, Tensor]:
     """Applies the inverse of a rational-quadratic spline to a scalar.
     Args:
-      y: a scalar (0-dimensional array). The scalar `y` can be any real number; it
-        will be transformed by the spline if it's in the closed interval
-        `[y_pos[0], y_pos[-1]]`, and it will be transformed linearly if it's
-        outside that interval.
-      x_pos: array of shape [num_bins + 1], the bin boundaries on the x axis.
-      y_pos: array of shape [num_bins + 1], the bin boundaries on the y axis.
-      knot_slopes: array of shape [num_bins + 1], the slopes at the knot points.
+      y: a Tensor of shape [N, D], where N is the batch size,
+         D is the number of torsion angles in each conformer.
+      x_pos: array of shape [D, num_bins + 1], the bin boundaries on the x axis.
+      y_pos: array of shape [D, num_bins + 1], the bin boundaries on the y axis.
+      knot_slopes: array of shape [D, num_bins + 1], the slopes at the knot points.
     Returns:
-      A tuple of two scalars: the output of the inverse transformation and the log
+      A tuple of two Tensors: the output of the inverse transformation and the log
       of the absolute first derivative of the inverse at `y`.
     """
     # Search to find the right bin. NOTE: The bins are sorted, so we could use

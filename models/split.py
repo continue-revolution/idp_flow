@@ -7,6 +7,7 @@ Code adapted from https://github.com/deepmind/distrax
 
 from typing import Tuple
 from torch import Tensor
+from torch.nn import Sequential
 from nflows.transforms import Transform
 
 
@@ -49,8 +50,8 @@ class SplitCoupling(Transform):
 
     def __init__(self,
                  angles: Tensor,
-                 conditioner: function,
-                 bijector: function,):
+                 conditioner,
+                 bijector):
         """Initializes a SplitCoupling bijector.
         Args:
           conditioner: a function that computes the parameters of the inner bijector
@@ -70,12 +71,12 @@ class SplitCoupling(Transform):
         self._bijector = bijector
 
     @property
-    def bijector(self) -> function:
+    def bijector(self):
         """The callable that returns the inner bijector of `SplitCoupling`."""
         return self._bijector
 
     @property
-    def conditioner(self) -> function:
+    def conditioner(self):
         """The conditioner function."""
         return self._conditioner
 

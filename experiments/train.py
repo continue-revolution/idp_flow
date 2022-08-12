@@ -128,6 +128,7 @@ def main(_):
                 beta=state.beta,
                 num_samples=config.test.batch_size,
             )
+            scheduler.step(loss)
             metrics = {
                 'loss': loss,
                 'energy': torch.mean(stats['energy']),
@@ -156,7 +157,7 @@ def main(_):
 
         step += 1
 
-    print('Done')
+    logger.info('Done')
 
 
 if __name__ == '__main__':

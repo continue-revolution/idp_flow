@@ -9,7 +9,7 @@ import torch
 from ml_collections import config_dict
 from torch.nn import Transformer
 from models.base import Base
-from models.conditioner import make_equivariant_conditioner
+from models.conditioner import Conditioner
 from models.model import make_model
 from models.flows import make_split_coupling_flow
 from models.transforms import Dihedral2Coord
@@ -36,7 +36,7 @@ def get_config(num_atoms: int):
         upper=torch.pi,
     )
     conditioner = dict(
-        constructor=make_equivariant_conditioner,
+        constructor=Conditioner,
         kwargs=dict(
             embedding_size=256,
             num_frequencies=num_frequencies,
