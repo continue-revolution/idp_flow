@@ -94,6 +94,7 @@ class Conditioner(Module):
         It returns an output of shape [..., N, K], where:
         K = `num_bijector_params`
         """
+        super().__init__()
         self.linear1 = Linear(in_features=angles.shape[-1],
                               out_features=embedding_size)
         self.conditioner = conditioner_constructor(**conditioner_kwargs)

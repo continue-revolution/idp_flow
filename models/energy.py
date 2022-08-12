@@ -15,6 +15,7 @@ class Energy(Module):
     """Energy loss with forward and backward pass."""
 
     def __init__(self, mol: Mol):
+        super().__init__()
         self.mol = mol
         self.ff_list = []
 

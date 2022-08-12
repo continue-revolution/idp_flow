@@ -46,7 +46,7 @@ def _rational_quadratic_spline_fwd(x: Tensor,
                                    knot_slopes: Tensor) -> Tuple[Tensor, Tensor]:
     """Applies a rational-quadratic spline to a scalar.
     Args:
-      x: a Tensor of shape N * D, where N is the batch size,
+      x: a Tensor of shape [N, D], where N is the batch size,
          D is the number of torsion angles in each conformer.
       x_pos: array of shape [D, num_bins + 1], the bin boundaries on the x axis.
       y_pos: array of shape [D, num_bins + 1], the bin boundaries on the y axis.
@@ -58,21 +58,21 @@ def _rational_quadratic_spline_fwd(x: Tensor,
     # Search to find the right bin. NOTE: The bins are sorted, so we could use
     # binary search, but this is more GPU/TPU friendly.
     # The following implementation avoids indexing for faster TPU computation.
-    below_range = x <= x_pos[0]
-    above_range = x >= x_pos[-1]
-    correct_bin = torch.logical_and(x[..., None] >= x_pos[:-1][None, None, ...],
-                                    x[..., None] < x_pos[1:][None, None, ...])
-    any_bin_in_range = torch.any(correct_bin, dim=2)
+    below_range = x <= x_pos[..., 0]
+    above_range = x >= x_pos[..., -1]
+    correct_bin = torch.logical_and(x[..., None] >= x_pos[..., :-1][None, ...],
+                                    x[..., None] < x_pos[..., 1:][None, ...])
+    any_bin_in_range = torch.any(correct_bin, dim=-1)
     first_bin = torch.concat([torch.tensor([1], dtype=bool),
                               torch.zeros(correct_bin.shape[-1]-1, dtype=bool)])
     # If y does not fall into any bin, we use the first spline in the following
     # computations to avoid numerical issues.
     correct_bin[~any_bin_in_range] = first_bin
     # Dot product of each parameter with the correct bin mask.
-    params = torch.stack([x_pos, y_pos, knot_slopes], axis=1)
+    params = torch.stack([x_pos, y_pos, knot_slopes], axis=2)
 
-    params_bin_left = torch.sum(correct_bin[..., None] * params[:-1], axis=2)
-    params_bin_right = torch.sum(correct_bin[..., None] * params[1:], axis=2)
+    params_bin_left = torch.sum(correct_bin[..., None] * params[:, :-1], axis=2)
+    params_bin_right = torch.sum(correct_bin[..., None] * params[:, 1:], axis=2)
 
     x_pos_bin = (params_bin_left[..., 0], params_bin_right[..., 0])
     y_pos_bin = (params_bin_left[..., 1], params_bin_right[..., 1])
@@ -110,11 +110,10 @@ def _rational_quadratic_spline_fwd(x: Tensor,
         knot_slopes_bin[0] * sq_1mz) - 2. * torch.log(denominator)
 
     # If x is outside the spline range, we default to a linear transformation.
-    y = torch.where(below_range, (x - x_pos[0]) * knot_slopes[0] + y_pos[0], y)
-    y = torch.where(
-        above_range, (x - x_pos[-1]) * knot_slopes[-1] + y_pos[-1], y)
-    logdet = torch.where(below_range, torch.log(knot_slopes[0]), logdet)
-    logdet = torch.where(above_range, torch.log(knot_slopes[-1]), logdet)
+    y = torch.where(below_range, (x - x_pos[..., 0]) * knot_slopes[..., 0] + y_pos[..., 0], y)
+    y = torch.where(above_range, (x - x_pos[..., -1]) * knot_slopes[..., -1] + y_pos[..., -1], y)
+    logdet = torch.where(below_range, torch.log(knot_slopes[..., 0]), logdet)
+    logdet = torch.where(above_range, torch.log(knot_slopes[..., -1]), logdet)
     return y, logdet
 
 
@@ -164,20 +163,20 @@ def _rational_quadratic_spline_inv(y: Tensor,
     # Search to find the right bin. NOTE: The bins are sorted, so we could use
     # binary search, but this is more GPU/TPU friendly.
     # The following implementation avoids indexing for faster TPU computation.
-    below_range = y <= y_pos[0]
-    above_range = y >= y_pos[-1]
-    correct_bin = torch.logical_and(y[..., None] >= y_pos[:-1][None, None, ...],
-                                    y[..., None] < y_pos[1:][None, None, ...])
-    any_bin_in_range = torch.any(correct_bin)
+    below_range = y <= y_pos[..., 0]
+    above_range = y >= y_pos[..., -1]
+    correct_bin = torch.logical_and(y[..., None] >= y_pos[..., :-1][None, ...],
+                                    y[..., None] < y_pos[..., 1:][None, ...])
+    any_bin_in_range = torch.any(correct_bin, dim=-1)
     first_bin = torch.concat([torch.tensor([1], dtype=bool),
                               torch.zeros(correct_bin.shape[-1]-1, dtype=bool)])
     # If y does not fall into any bin, we use the first spline in the following
     # computations to avoid numerical issues.
     correct_bin[~any_bin_in_range] = first_bin
     # Dot product of each parameter with the correct bin mask.
-    params = torch.stack([x_pos, y_pos, knot_slopes], axis=1)
-    params_bin_left = torch.sum(correct_bin[..., None] * params[:-1], axis=2)
-    params_bin_right = torch.sum(correct_bin[..., None] * params[1:], axis=2)
+    params = torch.stack([x_pos, y_pos, knot_slopes], axis=2)
+    params_bin_left = torch.sum(correct_bin[..., None] * params[:, :-1], axis=2)
+    params_bin_right = torch.sum(correct_bin[..., None] * params[:, 1:], axis=2)
 
     # These are the parameters for the corresponding bin.
     x_pos_bin = (params_bin_left[..., 0], params_bin_right[..., 0])
@@ -210,11 +209,10 @@ def _rational_quadratic_spline_inv(y: Tensor,
         knot_slopes_bin[0] * sq_1mz) + 2. * torch.log(denominator)
 
     # If y is outside the spline range, we default to a linear transformation.
-    x = torch.where(below_range, (y - y_pos[0]) / knot_slopes[0] + x_pos[0], x)
-    x = torch.where(
-        above_range, (y - y_pos[-1]) / knot_slopes[-1] + x_pos[-1], x)
-    logdet = torch.where(below_range, - torch.log(knot_slopes[0]), logdet)
-    logdet = torch.where(above_range, - torch.log(knot_slopes[-1]), logdet)
+    x = torch.where(below_range, (y - y_pos[..., 0]) / knot_slopes[..., 0] + x_pos[..., 0], x)
+    x = torch.where(above_range, (y - y_pos[..., -1]) / knot_slopes[..., -1] + x_pos[..., -1], x)
+    logdet = torch.where(below_range, - torch.log(knot_slopes[..., 0]), logdet)
+    logdet = torch.where(above_range, - torch.log(knot_slopes[..., -1]), logdet)
     return x, logdet
 
 

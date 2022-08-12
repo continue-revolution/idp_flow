@@ -23,6 +23,7 @@ class Dihedral2Coord(Module):
             mol (Mol): N molecular conformation with the same backbone and possibly different dihedral angles.
             angles (Tensor): a Tensor of shape (K, 4) where K is the number of dihedral angles for a conformer, 4 is (iAtomId, jAtomId, kAtomId, lAtomId).
         """
+        super().__init__()
         self.mol = mol
         self.angles = angles
         self.alist = {}
@@ -35,7 +36,7 @@ class Dihedral2Coord(Module):
         """
         nAtoms = self.mol.GetNumAtoms()
         K = self.angles.shape[0]
-        for i in K:
+        for i in range(K):
             iAtomId = self.angles[i, 1].item()
             jAtomId = self.angles[i, 2].item()
             if (iAtomId, jAtomId) not in self.alist:
@@ -105,9 +106,7 @@ class Dihedral2Coord(Module):
             pt[:, 1] + data[:, 1, 2] * pt[:, 2] + data[:, 1, 3]
         z = data[:, 2, 0] * pt[:, 0] + data[:, 2, 1] * \
             pt[:, 1] + data[:, 2, 2] * pt[:, 2] + data[:, 2, 3]
-        pt[:, 0] = x
-        pt[:, 1] = y
-        pt[:, 2] = z
+        pt = torch.stack([x, y, z], dim=1)
 
     def setDihedralRad(self, input: Tensor, angle: Tensor) -> Tensor:
         """
@@ -127,23 +126,24 @@ class Dihedral2Coord(Module):
         confs = self.mol.GetConformers()
         for conf in confs:
             pos.append(torch.tensor(conf.GetPositions(),
-                                    dtype=torch.float32))
+                                    dtype=torch.float32,
+                                    requires_grad=True))
         pos = torch.stack(pos)
         rIJ = pos[:, angle[1], :] - pos[:, angle[0], :]
         rJK = pos[:, angle[2], :] - pos[:, angle[1], :]
         rKL = pos[:, angle[3], :] - pos[:, angle[2], :]
-        nIJK = rIJ.cross(rJK, dim=2)
-        nJKL = rJK.cross(rKL, dim=2)
+        nIJK = rIJ.cross(rJK)
+        nJKL = rJK.cross(rKL)
         m = nIJK.cross(rJK)
-        N, _ = input.shape
         values = input + \
-            torch.atan2(m.reshape(N, 1, 3).bmm(
-                nJKL.reshape(N, 3, 1)).reshape(N))
+            torch.atan2(
+                m[:, None, :].bmm(nJKL[..., None]).squeeze() / (nJKL.norm(dim=-1) * m.norm(dim=-1)).sqrt(),
+                nIJK[:, None, :].bmm(nJKL[..., None]).squeeze() / (nIJK.norm(dim=-1) * nJKL.norm(dim=-1)).sqrt())
         rotAxisBegin = pos[:, angle[1], :]
         rotAxisEnd = pos[:, angle[2], :]
         rotAxis = rotAxisEnd - rotAxisBegin
         rotAxis.norm(dim=1)
-        for it in self.alist[(angle[1], angle[2])]:
+        for it in self.alist[(angle[1].item(), angle[2].item())]:
             pos[:, it, :] -= rotAxisBegin
             self.transformPoint(pos[:, it, :], values, rotAxis)
             pos[:, it, :] += rotAxisBegin
@@ -167,10 +167,11 @@ class Dihedral2Coord(Module):
         confs = self.mol.GetConformers()
         for i in range(N):
             for j in range(K):
-                Chem.rdMolTransforms.SetDihedralDeg(confs[i],
-                                                    self.angles[j, 0].item(),
-                                                    self.angles[j, 1].item(),
-                                                    self.angles[j, 2].item(),
-                                                    self.angles[j, 3].item(),
-                                                    input[i, j].item())
+                Chem.rdMolTransforms.SetDihedralDeg(
+                    confs[i],
+                    self.angles[j, 0].item(),
+                    self.angles[j, 1].item(),
+                    self.angles[j, 2].item(),
+                    self.angles[j, 3].item(),
+                    input[i, j].item())
         return output

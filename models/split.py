@@ -7,7 +7,6 @@ Code adapted from https://github.com/deepmind/distrax
 
 from typing import Tuple
 from torch import Tensor
-from torch.nn import Sequential
 from nflows.transforms import Transform
 
 
@@ -66,6 +65,7 @@ class SplitCoupling(Transform):
             `event_ndims`, the remaining dimensions will be converted to event
             dimensions using `distrax.Block`.
         """
+        super().__init__()
         self._angles = angles
         self._conditioner = conditioner
         self._bijector = bijector
