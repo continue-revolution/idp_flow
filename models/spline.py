@@ -114,6 +114,7 @@ def _rational_quadratic_spline_fwd(x: Tensor,
     y = torch.where(above_range, (x - x_pos[..., -1]) * knot_slopes[..., -1] + y_pos[..., -1], y)
     logdet = torch.where(below_range, torch.log(knot_slopes[..., 0]), logdet)
     logdet = torch.where(above_range, torch.log(knot_slopes[..., -1]), logdet)
+    logdet = logdet.sum(dim=-1)
     return y, logdet
 
 
@@ -213,6 +214,7 @@ def _rational_quadratic_spline_inv(y: Tensor,
     x = torch.where(above_range, (y - y_pos[..., -1]) / knot_slopes[..., -1] + x_pos[..., -1], x)
     logdet = torch.where(below_range, - torch.log(knot_slopes[..., 0]), logdet)
     logdet = torch.where(above_range, - torch.log(knot_slopes[..., -1]), logdet)
+    logdet = logdet.sum(dim=-1)
     return x, logdet
 
 

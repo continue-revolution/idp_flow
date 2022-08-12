@@ -95,9 +95,9 @@ class Conditioner(Module):
         K = `num_bijector_params`
         """
         super().__init__()
-        self.linear1 = Linear(in_features=angles.shape[-1],
+        self.linear1 = Linear(in_features=2 * num_frequencies * angles.shape[-1],
                               out_features=embedding_size)
-        self.conditioner = conditioner_constructor(**conditioner_kwargs)
+        self.conditioner = conditioner_constructor(d_model=embedding_size, **conditioner_kwargs)
         self.linear2 = Linear(in_features=embedding_size,
                               out_features=num_bijector_params)
         self.circular_kwards = dict(

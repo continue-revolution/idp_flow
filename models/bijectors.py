@@ -5,6 +5,7 @@ Customized bijectors.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 """
 
+from cmath import log
 from typing import Union, Tuple
 import torch
 from torch import Tensor
@@ -34,9 +35,11 @@ class CircularShift(Transform):
     def forward(self, inputs: Tensor, context=None) -> Tuple[Tensor, Tensor]:
         outputs = self.wrap(inputs + self.shift)
         logabsdet = torch.zeros_like(inputs)
+        logabsdet = logabsdet.sum(dim=-1)
         return outputs, logabsdet
 
     def inverse(self, inputs: Tensor, context=None) -> Tuple[Tensor, Tensor]:
         outputs = self.wrap(inputs - self.shift)
         logabsdet = torch.zeros_like(inputs)
+        logabsdet = logabsdet.sum(dim=-1)
         return outputs, logabsdet
