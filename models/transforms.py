@@ -9,6 +9,7 @@ from rdkit.Chem.rdchem import Mol
 import torch
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import normalize
 from rdkit import Chem
 
 
@@ -51,7 +52,7 @@ class Dihedral2Coord(Module):
                 doMainLoop = True
                 while len(stack) > 0:
                     doMainLoop = False
-                    tIdx = stack[0]
+                    tIdx = stack[-1]
                     tAtom = self.mol.GetAtomWithIdx(tIdx)
                     neighbors = tAtom.GetNeighbors()
                     nbrIdx = 0
@@ -70,7 +71,7 @@ class Dihedral2Coord(Module):
                     stack.pop()
                 self.alist[(iAtomId, jAtomId)].clear()
                 for j in range(nAtoms):
-                    if visitedIdx[j] and j != iAtomId:
+                    if visitedIdx[j] and j != iAtomId and j != jAtomId:
                         self.alist[(iAtomId, jAtomId)].append(j)
 
     def transformPoint(self, pt: Tensor, angle: Tensor, axis: Tensor):
@@ -83,32 +84,23 @@ class Dihedral2Coord(Module):
             angle (Tensor): a Tensor of shape (N) where N is the batch size, 1 is the rotation angle.
             axis (Tensor): a Tensor of shape (N, 3) where N is the batch size, 3 is 3D coordinates of the axis.
         """
-        N = pt.shape[0]
-        data = torch.eye(4).reshape(1, 4, 4).repeat(N, 1, 1)
         cosT = angle.cos()
         sinT = angle.sin()
         t = 1 - cosT
         X = axis[:, 0]
         Y = axis[:, 1]
         Z = axis[:, 2]
-        data[:, 0, 0] = t * X * X + cosT
-        data[:, 0, 1] = t * X * Y - sinT * Z
-        data[:, 0, 2] = t * X * Z + sinT * Y
-        data[:, 1, 0] = t * X * Y + sinT * Z
-        data[:, 1, 1] = t * Y * Y + cosT
-        data[:, 1, 2] = t * Y * Z - sinT * X
-        data[:, 2, 0] = t * X * Z - sinT * Y
-        data[:, 2, 1] = t * Y * Z + sinT * X
-        data[:, 2, 2] = t * Z * Z + cosT
-        x = data[:, 0, 0] * pt[:, 0] + data[:, 0, 1] * \
-            pt[:, 1] + data[:, 0, 2] * pt[:, 2] + data[:, 0, 3]
-        y = data[:, 1, 0] * pt[:, 0] + data[:, 1, 1] * \
-            pt[:, 1] + data[:, 1, 2] * pt[:, 2] + data[:, 1, 3]
-        z = data[:, 2, 0] * pt[:, 0] + data[:, 2, 1] * \
-            pt[:, 1] + data[:, 2, 2] * pt[:, 2] + data[:, 2, 3]
-        pt = torch.stack([x, y, z], dim=1)
+        N = angle.shape[0]
+        data = t[..., None, None] * axis[..., None].bmm(axis[:, None, :])
+        mat1 = torch.stack([cosT        ,-sinT * Z  ,sinT * Y, 
+                            sinT * Z    ,cosT       ,-sinT * X, 
+                            -sinT * Y   ,sinT * X   ,cosT],
+                           dim=1).reshape(N, 3, 3)
+        data += mat1
+        pt = data.bmm(pt[..., None]).squeeze()
+        return pt
 
-    def setDihedralRad(self, input: Tensor, angle: Tensor) -> Tensor:
+    def setDihedralRad(self, input: Tensor, angle: Tensor, pos: Tensor) -> Tensor:
         """
         An implementation of differentiable setDihedralRad from rdkit.
         Note: This version has eliminated all fault checks temporarily. Add them if needed from the link below.
@@ -122,13 +114,6 @@ class Dihedral2Coord(Module):
         Returns:
             output (Tensor): a Tensor of shape (N, M, 3) where N is the batch size, M is the number of atoms, 3 is the 3D coordinates (x, y, z).
         """
-        pos = []
-        confs = self.mol.GetConformers()
-        for conf in confs:
-            pos.append(torch.tensor(conf.GetPositions(),
-                                    dtype=torch.float32,
-                                    requires_grad=True))
-        pos = torch.stack(pos)
         rIJ = pos[:, angle[1], :] - pos[:, angle[0], :]
         rJK = pos[:, angle[2], :] - pos[:, angle[1], :]
         rKL = pos[:, angle[3], :] - pos[:, angle[2], :]
@@ -137,15 +122,14 @@ class Dihedral2Coord(Module):
         m = nIJK.cross(rJK)
         values = input + \
             torch.atan2(
-                m[:, None, :].bmm(nJKL[..., None]).squeeze() / (nJKL.norm(dim=-1) * m.norm(dim=-1)).sqrt(),
-                nIJK[:, None, :].bmm(nJKL[..., None]).squeeze() / (nIJK.norm(dim=-1) * nJKL.norm(dim=-1)).sqrt())
+                m[:, None, :].bmm(nJKL[..., None]).squeeze() / (nJKL.norm(dim=-1) * m.norm(dim=-1)),
+                nIJK[:, None, :].bmm(nJKL[..., None]).squeeze() / (nIJK.norm(dim=-1) * nJKL.norm(dim=-1)))
         rotAxisBegin = pos[:, angle[1], :]
         rotAxisEnd = pos[:, angle[2], :]
-        rotAxis = rotAxisEnd - rotAxisBegin
-        rotAxis.norm(dim=1)
+        rotAxis = normalize(rotAxisEnd - rotAxisBegin)
         for it in self.alist[(angle[1].item(), angle[2].item())]:
             pos[:, it, :] -= rotAxisBegin
-            self.transformPoint(pos[:, it, :], values, rotAxis)
+            pos[:, it, :] = self.transformPoint(pos[:, it, :], values, rotAxis)
             pos[:, it, :] += rotAxisBegin
         return pos
 
@@ -162,16 +146,49 @@ class Dihedral2Coord(Module):
             output (Tensor): a Tensor of shape (N, M, 3) where N is the batch size, M is the number of atoms, 3 is the 3D coordinates (x, y, z).
         """
         N, K = input.shape
-        for i in range(K):
-            output = self.setDihedralRad(input[:, i], self.angles[i, :])
+        pos = []
         confs = self.mol.GetConformers()
+        for conf in confs:
+            pos.append(torch.tensor(conf.GetPositions(),
+                                    dtype=torch.float32,
+                                    requires_grad=True))
+        pos = torch.stack(pos)
+        # torch.set_printoptions(profile="full")
+        for i in range(K):
+            pos = self.setDihedralRad(input[:, i], self.angles[i, :], pos)
+            # print(pos)
+            # for r in range(N):
+            #     Chem.rdMolTransforms.SetDihedralRad(
+            #         confs[r],
+            #         self.angles[i, 0].item(),
+            #         self.angles[i, 1].item(),
+            #         self.angles[i, 2].item(),
+            #         self.angles[i, 3].item(),
+            #         input[r, i].item())
+            # newPos = []
+            # for r in range(N):
+            #     newPos.append(torch.tensor(confs[r].GetPositions(),
+            #                             dtype=torch.float32))
+            # newPos = torch.stack(newPos)
+            # diff = (pos-newPos).abs()
+            # # print(newPos)
+            # print(diff.max(), diff.argmax(), (diff < 1e-6).sum())
+            # print(diff)
         for i in range(N):
             for j in range(K):
-                Chem.rdMolTransforms.SetDihedralDeg(
+                Chem.rdMolTransforms.SetDihedralRad(
                     confs[i],
                     self.angles[j, 0].item(),
                     self.angles[j, 1].item(),
                     self.angles[j, 2].item(),
                     self.angles[j, 3].item(),
                     input[i, j].item())
-        return output
+        newPos = []
+        for r in range(N):
+            newPos.append(torch.tensor(confs[r].GetPositions(),
+                                    dtype=torch.float32))
+        newPos = torch.stack(newPos)
+        diff = (pos-newPos).abs()
+        # print(newPos)
+        print(diff.max(), diff.argmax(), (diff < 1e-6).sum())
+        return pos
