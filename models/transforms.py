@@ -97,8 +97,7 @@ class Dihedral2Coord(Module):
                             -sinT * Y   ,sinT * X   ,cosT],
                            dim=1).reshape(N, 3, 3)
         data += mat1
-        pt = data.bmm(pt[..., None]).squeeze()
-        return pt
+        return data.bmm(pt[..., None]).squeeze()
 
     def setDihedralRad(self, input: Tensor, angle: Tensor, pos: Tensor) -> Tensor:
         """
@@ -129,7 +128,7 @@ class Dihedral2Coord(Module):
         rotAxis = normalize(rotAxisEnd - rotAxisBegin)
         for it in self.alist[(angle[1].item(), angle[2].item())]:
             pos[:, it, :] -= rotAxisBegin
-            pos[:, it, :] = self.transformPoint(pos[:, it, :], values, rotAxis)
+            pos[:, it, :] = self.transformPoint(pos[:, it, :].clone(), values, rotAxis)
             pos[:, it, :] += rotAxisBegin
         return pos
 
@@ -183,12 +182,12 @@ class Dihedral2Coord(Module):
                     self.angles[j, 2].item(),
                     self.angles[j, 3].item(),
                     input[i, j].item())
-        newPos = []
-        for r in range(N):
-            newPos.append(torch.tensor(confs[r].GetPositions(),
-                                    dtype=torch.float32))
-        newPos = torch.stack(newPos)
-        diff = (pos-newPos).abs()
+        # newPos = []
+        # for r in range(N):
+        #     newPos.append(torch.tensor(confs[r].GetPositions(),
+        #                             dtype=torch.float32))
+        # newPos = torch.stack(newPos)
+        # diff = (pos-newPos).abs()
         # print(newPos)
-        print(diff.max(), diff.argmax(), (diff < 1e-6).sum())
+        # print(diff.max(), diff.argmax(), (diff < 1e-6).sum())
         return pos
