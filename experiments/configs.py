@@ -69,11 +69,12 @@ def get_config(num_atoms: int):
             coord_trans=dict(
                 constructor=Dihedral2Coord,
             ),
-            energy_layer=dict(
-                constructor=Energy,
-            ),
+            # energy_layer=dict(
+            #     constructor=Energy,
+            # ),
         ),
     )
+    config.energy = Energy.apply
     config.train = dict(
         batch_size=train_batch_size,
         learning_rate=7e-5,

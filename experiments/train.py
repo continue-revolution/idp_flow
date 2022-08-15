@@ -8,6 +8,7 @@ from absl import app
 from absl import flags
 import torch
 from torch import Tensor
+from torch.nn import Module
 from torch.optim import Adam
 from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
@@ -19,12 +20,12 @@ flags.DEFINE_enum(name='system', default='_16',
                   enum_values=['_4', '_8', '_16', '_32', '_64'
                                ], help='System and number of atoms to train.')
 # flags.DEFINE_integer(name='val_freq', default=50)
-flags.DEFINE_integer(name='max_iter', default=int(10**6))
-flags.DEFINE_integer(name='seed', default=2020)
-flags.DEFINE_bool(name='reduce_on_plateau', default=True)
-flags.DEFINE_bool(name='resume', default=False)
-flags.DEFINE_string(name='tag', default='')
-flags.DEFINE_string(name='log_root', default='../logs')
+flags.DEFINE_integer(name='max_iter', default=int(10**6), help='Max iteration of training.')
+# flags.DEFINE_integer(name='seed', default=2020, help="Seed of random generation.")
+flags.DEFINE_bool(name='reduce_on_plateau', default=True, help='Reduce on plateau or multi-step lr')
+flags.DEFINE_bool(name='resume', default=False, help='Resume from previous model.')
+flags.DEFINE_string(name='tag', default='', help='Tag of the saved model.')
+flags.DEFINE_string(name='log_root', default='./logs', help='Log dir.')
 
 FLAGS = flags.FLAGS
 
@@ -35,13 +36,15 @@ def _num_particles(system: str) -> int:
 
 def _get_loss(
         model: Flow,
+        trans: Module,
         energy_fn: Callable,
         beta: Tensor,
         num_samples: int) -> Tuple[Tensor, Dict[str, Tensor]]:
     """Returns the loss and stats."""
     samples, log_prob = model.sample_and_log_prob(
         num_samples=num_samples)
-    energies = energy_fn(samples)
+    samples_3D = trans(samples)
+    energies = energy_fn(samples_3D, model._distribution.mol)
     energy_loss = torch.mean(beta * energies + log_prob)
 
     loss = energy_loss
@@ -58,7 +61,7 @@ def main(_):
     config = get_config(_num_particles(system))
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     state = config.state
-    seed_all(FLAGS.seed)
+    seed_all(config.train.seed)
 
     # Logging
     log_dir = get_new_log_dir(root=FLAGS.log_root,
@@ -70,39 +73,40 @@ def main(_):
 
     # Model
     logger.info('Building model...')
-    model, energy_fn = config.model['constructor'](
-        num_atoms=state.num_atoms,
+    model, trans = config.model['constructor'](
         lower=state.lower,
         upper=state.upper,
-        **config.model['kwargs']).to(DEVICE)
+        **config.model['kwargs'])
     if FLAGS.resume:
         ckpt_resume = CheckpointManager(
-            '../pretrained', logger=logger).load_latest()
+            './pretrained', logger=logger).load_latest()
         logger.info(f'Resuming from iteration {ckpt_resume["iteration"]}')
         model.load_state_dict(ckpt_resume['state_dict'])
 
     # Optimizer and scheduler
     optimizer = Adam(model.parameters(),
-                     lr=config.learning_rate)
+                     lr=config.train['learning_rate'])
     if FLAGS.reduce_on_plateau:
         scheduler = ReduceLROnPlateau(
             optimizer,
-            factor=config.learning_rate_decay_factor)
+            factor=config.train['learning_rate_decay_factor'])
     else:
         scheduler = MultiStepLR(
             optimizer,
-            milestones=config.learning_rate_decay_steps,
-            gamma=config.learning_rate_decay_factor)
+            milestones=config.train['learning_rate_decay_steps'],
+            gamma=config.train['learning_rate_decay_factor'])
 
     def train(iter: int):
         model.train()
         optimizer.zero_grad()
         loss, stats = _get_loss(
             model=model,
-            energy_fn=energy_fn,
+            trans=trans,
+            energy_fn=config.energy,
             beta=state.beta,
             num_samples=config.train.batch_size,
         )
+        print(loss.device)
         loss.backward()
         optimizer.step()
         metrics = {
@@ -124,7 +128,8 @@ def main(_):
             model.eval()
             loss, stats = _get_loss(
                 model=model,
-                energy_fn=energy_fn,
+                trans=trans,
+                energy_fn=config.energy,
                 beta=state.beta,
                 num_samples=config.test.batch_size,
             )

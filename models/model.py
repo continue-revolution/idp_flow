@@ -7,7 +7,7 @@ Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 
 from typing import Mapping, Any, Tuple
 from nflows.flows import Flow
-from torch.nn import Sequential
+from torch.nn import Module
 
 
 def make_model(
@@ -16,8 +16,8 @@ def make_model(
     bijector: Mapping[str, Any],
     base: Mapping[str, Any],
     coord_trans: Mapping[str, Any],
-    energy_layer: Mapping[str, Any]
-) -> Tuple[Flow, Sequential]:
+    # energy_layer: Mapping[str, Any]
+) -> Tuple[Flow, Module]:
     """Constructs a IDP model, with various configuration options.
 
     The model is implemented as follows:
@@ -52,9 +52,9 @@ def make_model(
     trans = coord_trans['constructor'](
         mol=base_model.mol,
         angles=base_model.torsion_angles)
-    energy = energy_layer['constructor'](
-        mol=base_model.mol)
+    # energy = energy_layer['constructor']()
+        # mol=base_model.mol)
 
-    energy_fn = Sequential(trans, energy)
+    # energy_fn = Sequential(trans, energy)
 
-    return model, energy_fn
+    return model, trans
