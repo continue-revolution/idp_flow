@@ -17,17 +17,17 @@ from models.energy import Energy
 
 
 FREQUENCIES = {
-    4: 8,
-    8: 8,
-    16: 8,
-    32: 8,
+    4: 2,
+    8: 2,
+    16: 2,
+    32: 2,
 }
 
 
 def get_config(num_atoms: int):
     """Returns the config."""
     num_frequencies = FREQUENCIES[num_atoms]
-    train_batch_size = 128
+    train_batch_size = 4
     config = config_dict.ConfigDict()
     config.state = dict(
         num_atoms=num_atoms,
@@ -53,7 +53,7 @@ def get_config(num_atoms: int):
             bijector=dict(
                 constructor=make_split_coupling_flow,
                 kwargs=dict(
-                    num_layers=24,
+                    num_layers=1,
                     num_bins=16,
                     conditioner=conditioner,
                     use_circular_shift=True,

@@ -24,6 +24,7 @@ def make_split_coupling_flow(
     conditioner: Mapping[str, Any],
     use_circular_shift: bool,
     circular_shift_init=torch.zeros,
+    device='cuda'
 ) -> CompositeTransform:
     """Create a flow that consists of a sequence of split coupling layers.
 
@@ -67,7 +68,7 @@ def make_split_coupling_flow(
         # Circular shift.
         if use_circular_shift:
             shift = Parameter(
-                data=circular_shift_init(size=(1, )))
+                data=circular_shift_init(size=(1, ), device=device))
             shift_layer = CircularShift(
                 (upper - lower) * shift, lower, upper)
             sublayers.append(shift_layer)

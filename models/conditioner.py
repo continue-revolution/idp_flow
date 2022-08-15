@@ -15,7 +15,8 @@ from torch.nn import (Linear, Module)
 def circular(x: Tensor,
              lower: float,
              upper: float,
-             num_frequencies: int) -> Tensor:
+             num_frequencies: int,
+             device: str) -> Tensor:
     """Maps angles to points on the unit circle.
 
     The mapping is such that the interval [lower, upper] is mapped to a full
@@ -33,7 +34,7 @@ def circular(x: Tensor,
         An array of shape [..., 2*num_frequencies*D].
     """
     base_frequency = 2. * torch.pi / (upper - lower)
-    frequencies = base_frequency * torch.arange(1, num_frequencies+1)
+    frequencies = base_frequency * torch.arange(1, num_frequencies+1, device=device)
     angles = frequencies * (x[..., None] - lower)
     # Reshape from [..., D, num_frequencies] to [..., D*num_frequencies].
     angles = angles.reshape(x.shape[:-1] + (-1,))
@@ -95,11 +96,17 @@ class Conditioner(Module):
         K = `num_bijector_params`
         """
         super().__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.linear1 = Linear(in_features=2 * num_frequencies * angles.shape[-1],
-                              out_features=embedding_size)
-        self.conditioner = conditioner_constructor(d_model=embedding_size, **conditioner_kwargs)
+                              out_features=embedding_size,
+                              device=self.device)
+        self.conditioner = conditioner_constructor(
+            d_model=embedding_size,
+            device=self.device,
+            **conditioner_kwargs)
         self.linear2 = Linear(in_features=embedding_size,
-                              out_features=num_bijector_params)
+                              out_features=num_bijector_params,
+                              device=self.device)
         self.circular_kwards = dict(
             lower=lower,
             upper=upper,
@@ -107,7 +114,12 @@ class Conditioner(Module):
         )
 
     def forward(self, input: Tensor):
-        out = circular(input, **self.circular_kwards)
+        # self.linear1.zero_grad()
+        # self.conditioner.zero_grad()
+        # self.linear2.zero_grad()
+        out = circular(input,
+                       **self.circular_kwards,
+                       device=self.device)
         out = self.linear1(out)
         out = self.conditioner(out, out)
         out = self.linear2(out)

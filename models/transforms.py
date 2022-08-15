@@ -74,23 +74,23 @@ class Dihedral2Coord(Module):
                     if visitedIdx[j] and j != iAtomId and j != jAtomId:
                         self.alist[(iAtomId, jAtomId)].append(j)
 
-    def transformPoint(self, pt: Tensor, angle: Tensor, axis: Tensor):
+    def transformPoint(self, pt: Tensor, input: Tensor, axis: Tensor):
         """
         An implementation of differentiable SetRotation and TransformPoint from rdkit.
         See https://github.com/rdkit/rdkit/blob/master/Code/Geometry/Transform3D.cpp
 
         Args:
             pt (Tensor): a Tensor of shape (N, 3) where N is the batch size, 3 is 3D coordinates.
-            angle (Tensor): a Tensor of shape (N) where N is the batch size, 1 is the rotation angle.
+            input (Tensor): a Tensor of shape (N) where N is the batch size, 1 is the rotation angle.
             axis (Tensor): a Tensor of shape (N, 3) where N is the batch size, 3 is 3D coordinates of the axis.
         """
-        cosT = angle.cos()
-        sinT = angle.sin()
+        cosT = input.cos()
+        sinT = input.sin()
         t = 1 - cosT
         X = axis[:, 0]
         Y = axis[:, 1]
         Z = axis[:, 2]
-        N = angle.shape[0]
+        N = input.shape[0]
         data = t[..., None, None] * axis[..., None].bmm(axis[:, None, :])
         mat1 = torch.stack([cosT        ,-sinT * Z  ,sinT * Y, 
                             sinT * Z    ,cosT       ,-sinT * X, 
@@ -147,10 +147,13 @@ class Dihedral2Coord(Module):
         N, K = input.shape
         pos = []
         confs = self.mol.GetConformers()
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         for conf in confs:
-            pos.append(torch.tensor(conf.GetPositions(),
-                                    dtype=torch.float32,
-                                    requires_grad=True))
+            pos.append(torch.tensor(
+                conf.GetPositions(),
+                dtype=torch.float32,
+                device=device,
+                requires_grad=True))
         pos = torch.stack(pos)
         # torch.set_printoptions(profile="full")
         for i in range(K):

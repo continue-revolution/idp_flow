@@ -5,6 +5,7 @@ Model producer.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 """
 
+import torch
 from typing import Mapping, Any, Tuple
 from nflows.flows import Flow
 from torch.nn import Module
@@ -39,13 +40,14 @@ def make_model(
     Returns:
       A particle model.
     """
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     base_model = base['constructor'](
         **base['kwargs'])
     bij = bijector['constructor'](
         angles=base_model.torsion_angles,
         lower=lower,
         upper=upper,
-        **bijector['kwargs'])
+        **bijector['kwargs']).to(device)
 
     model = Flow(bij, base_model)
 
@@ -53,7 +55,7 @@ def make_model(
         mol=base_model.mol,
         angles=base_model.torsion_angles)
     # energy = energy_layer['constructor']()
-        # mol=base_model.mol)
+    # mol=base_model.mol)
 
     # energy_fn = Sequential(trans, energy)
 

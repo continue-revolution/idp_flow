@@ -5,6 +5,8 @@ split coupling bijector class.
 Code adapted from https://github.com/deepmind/distrax
 """
 
+import torch
+from torch.nn import Parameter
 from typing import Tuple
 from torch import Tensor
 from nflows.transforms import Transform
@@ -69,6 +71,7 @@ class SplitCoupling(Transform):
         self._angles = angles
         self._conditioner = conditioner
         self._bijector = bijector
+        # self._params = Parameter(data=torch.rand(size=(angles.shape[0], 49), device='cuda'), requires_grad=True)
 
     @property
     def bijector(self):

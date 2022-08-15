@@ -59,7 +59,7 @@ def _get_loss(
 def main(_):
     system = FLAGS.system
     config = get_config(_num_particles(system))
-    DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     state = config.state
     seed_all(config.train.seed)
 
@@ -68,7 +68,7 @@ def main(_):
                               prefix='IDP_NF', tag=FLAGS.tag)
     logger = get_logger('train', log_dir)
     writer = SummaryWriter(log_dir)
-    ckpt_mgr = CheckpointManager(log_dir)
+    ckpt_mgr = CheckpointManager('./pretrained', logger=logger)
     # log_hyperparams(writer, config)
 
     # Model
@@ -98,7 +98,6 @@ def main(_):
 
     def train(iter: int):
         model.train()
-        optimizer.zero_grad()
         loss, stats = _get_loss(
             model=model,
             trans=trans,
@@ -109,6 +108,8 @@ def main(_):
         print(loss.device)
         loss.backward()
         optimizer.step()
+        optimizer.zero_grad()
+        trans.zero_grad()
         metrics = {
             'loss': loss,
             'energy': torch.mean(stats['energy']),
@@ -123,7 +124,7 @@ def main(_):
                           metrics['model_entropy'], iter)
         writer.flush()
 
-    def validate(iter: int, is_save=False):
+    def validate(iter: int, is_save=True):
         with torch.no_grad():
             model.eval()
             loss, stats = _get_loss(
@@ -147,7 +148,7 @@ def main(_):
                               metrics['model_entropy'], iter)
             writer.flush()
             if is_save:
-                ckpt_mgr.save(model, FLAGS, loss, iter)
+                ckpt_mgr.save(model, loss, iter)
 
     step = 0
     if FLAGS.resume:

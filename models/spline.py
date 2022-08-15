@@ -43,7 +43,8 @@ def _normalize_knot_slopes(unnormalized_knot_slopes: Tensor,
 def _rational_quadratic_spline_fwd(x: Tensor,
                                    x_pos: Tensor,
                                    y_pos: Tensor,
-                                   knot_slopes: Tensor) -> Tuple[Tensor, Tensor]:
+                                   knot_slopes: Tensor,
+                                   device: str) -> Tuple[Tensor, Tensor]:
     """Applies a rational-quadratic spline to a scalar.
     Args:
       x: a Tensor of shape [N, D], where N is the batch size,
@@ -63,8 +64,8 @@ def _rational_quadratic_spline_fwd(x: Tensor,
     correct_bin = torch.logical_and(x[..., None] >= x_pos[..., :-1][None, ...],
                                     x[..., None] < x_pos[..., 1:][None, ...])
     any_bin_in_range = torch.any(correct_bin, dim=-1)
-    first_bin = torch.concat([torch.tensor([1], dtype=bool),
-                              torch.zeros(correct_bin.shape[-1]-1, dtype=bool)])
+    first_bin = torch.concat([torch.tensor([1], dtype=bool, device=device),
+                              torch.zeros(correct_bin.shape[-1]-1, dtype=bool, device=device)])
     # If y does not fall into any bin, we use the first spline in the following
     # computations to avoid numerical issues.
     correct_bin[~any_bin_in_range] = first_bin
@@ -149,7 +150,8 @@ def _safe_quadratic_root(a: Tensor, b: Tensor, c: Tensor) -> Tensor:
 def _rational_quadratic_spline_inv(y: Tensor,
                                    x_pos: Tensor,
                                    y_pos: Tensor,
-                                   knot_slopes: Tensor) -> Tuple[Tensor, Tensor]:
+                                   knot_slopes: Tensor,
+                                   device: str) -> Tuple[Tensor, Tensor]:
     """Applies the inverse of a rational-quadratic spline to a scalar.
     Args:
       y: a Tensor of shape [N, D], where N is the batch size,
@@ -169,8 +171,8 @@ def _rational_quadratic_spline_inv(y: Tensor,
     correct_bin = torch.logical_and(y[..., None] >= y_pos[..., :-1][None, ...],
                                     y[..., None] < y_pos[..., 1:][None, ...])
     any_bin_in_range = torch.any(correct_bin, dim=-1)
-    first_bin = torch.concat([torch.tensor([1], dtype=bool),
-                              torch.zeros(correct_bin.shape[-1]-1, dtype=bool)])
+    first_bin = torch.concat([torch.tensor([1], dtype=bool, device=device),
+                              torch.zeros(correct_bin.shape[-1]-1, dtype=bool, device=device)])
     # If y does not fall into any bin, we use the first spline in the following
     # computations to avoid numerical issues.
     correct_bin[~any_bin_in_range] = first_bin
@@ -305,6 +307,7 @@ class RationalQuadraticSpline(Transform):
             will have a slope less than this value.
         """
         super().__init__()
+        self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
         if params.shape[-1] % 3 != 1 or params.shape[-1] < 4:
             raise ValueError(f'The last dimension of `params` must have size'
                              f' `3 * num_bins + 1` and `num_bins` must be at least 1.'
@@ -334,8 +337,8 @@ class RationalQuadraticSpline(Transform):
         x_pos = range_min + torch.cumsum(bin_widths[..., :-1], axis=-1)
         y_pos = range_min + torch.cumsum(bin_heights[..., :-1], axis=-1)
         pad_shape = params.shape[:-1] + (1,)
-        pad_below = torch.full(pad_shape, range_min, dtype=self._dtype)
-        pad_above = torch.full(pad_shape, range_max, dtype=self._dtype)
+        pad_below = torch.full(pad_shape, range_min, dtype=self._dtype, device=self._device)
+        pad_above = torch.full(pad_shape, range_max, dtype=self._dtype, device=self._device)
         self._x_pos = torch.concat([pad_below, x_pos, pad_above], axis=-1)
         self._y_pos = torch.concat([pad_below, y_pos, pad_above], axis=-1)
         # Normalize knot slopes and enforce requested boundary conditions.
@@ -344,15 +347,15 @@ class RationalQuadraticSpline(Transform):
         if boundary_slopes == 'unconstrained':
             self._knot_slopes = knot_slopes
         elif boundary_slopes == 'lower_identity':
-            ones = torch.ones(pad_shape, self._dtype)
+            ones = torch.ones(pad_shape, self._dtype, device=self._device)
             self._knot_slopes = torch.concat(
                 [ones, knot_slopes[..., 1:]], axis=-1)
         elif boundary_slopes == 'upper_identity':
-            ones = torch.ones(pad_shape, self._dtype)
+            ones = torch.ones(pad_shape, self._dtype, device=self._device)
             self._knot_slopes = torch.concat(
                 [knot_slopes[..., :-1], ones], axis=-1)
         elif boundary_slopes == 'identity':
-            ones = torch.ones(pad_shape, self._dtype)
+            ones = torch.ones(pad_shape, self._dtype, device=self._device)
             self._knot_slopes = torch.concat(
                 [ones, knot_slopes[..., 1:-1], ones], axis=-1)
         elif boundary_slopes == 'circular':
@@ -385,11 +388,11 @@ class RationalQuadraticSpline(Transform):
     def forward(self, x: Tensor, context=None) -> Tuple[Tensor, Tensor]:
         """Computes y = f(x) and log|det J(f)(x)|."""
         y, logdet = _rational_quadratic_spline_fwd(
-            x, self._x_pos, self._y_pos, self._knot_slopes)
+            x, self._x_pos, self._y_pos, self._knot_slopes, self._device)
         return y, logdet
 
     def inverse(self, y: Tensor, context=None) -> Tuple[Tensor, Tensor]:
         """Computes x = f^{-1}(y) and log|det J(f^{-1})(y)|."""
         x, logdet = _rational_quadratic_spline_inv(
-            y, self._x_pos, self._y_pos, self._knot_slopes)
+            y, self._x_pos, self._y_pos, self._knot_slopes, self._device)
         return x, logdet

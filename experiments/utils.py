@@ -64,7 +64,7 @@ class CheckpointManager(object):
                 best = ckpt['score']
         return idx if idx >= 0 else None
         
-    def save(self, model, args, score, step=None):
+    def save(self, model, score, step=None):
         idx = self.get_worst_ckpt_idx()
         if idx is None:
             return False
@@ -76,7 +76,7 @@ class CheckpointManager(object):
         path = os.path.join(self.save_dir, fname)
 
         torch.save({
-            'args': args,
+            # 'args': args,
             'state_dict': model.state_dict(),
         }, path)
 
