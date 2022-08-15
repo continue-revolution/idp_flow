@@ -3,7 +3,7 @@
 Intrinsic Disorder Protein generation with Normalizing Flows/RTGN
 
 - [x] Code implemented
-- [ ] Code debugged
+- [x] Code debugged
 - [ ] Code style fixed
   - [ ] well documented
   - [ ] device specified well
