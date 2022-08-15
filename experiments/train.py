@@ -105,7 +105,6 @@ def main(_):
             beta=state.beta,
             num_samples=config.train.batch_size,
         )
-        print(loss.device)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -140,11 +139,11 @@ def main(_):
                 'energy': torch.mean(stats['energy']),
                 'model_entropy': -torch.mean(stats['model_log_prob']),
             }
-            logger.info('[Train] Iter %04d | Loss %.6f | Energy %d | Entropy %d ' % (
+            logger.info('[ Val ] Iter %04d | Loss %.6f | Energy %d | Entropy %d ' % (
                 iter, loss.item(), metrics['energy'], metrics['model_entropy']))
             writer.add_scalar('val/loss', loss, iter)
-            writer.add_scalar('train/energy', metrics['energy'], iter)
-            writer.add_scalar('train/model_entropy',
+            writer.add_scalar('val/energy', metrics['energy'], iter)
+            writer.add_scalar('val/model_entropy',
                               metrics['model_entropy'], iter)
             writer.flush()
             if is_save:

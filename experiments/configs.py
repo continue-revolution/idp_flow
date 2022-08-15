@@ -56,7 +56,7 @@ def get_config(num_atoms: int):
                     num_layers=24,
                     num_bins=16,
                     conditioner=conditioner,
-                    use_circular_shift=True,
+                    use_circular_shift=False,
                 ),
             ),
             base=dict(

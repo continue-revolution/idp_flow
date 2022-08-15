@@ -5,10 +5,10 @@ Customized bijectors.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 """
 
-from cmath import log
 from typing import Union, Tuple
 import torch
 from torch import Tensor
+from torch.nn import Parameter
 from nflows.transforms import Transform
 
 
@@ -16,7 +16,7 @@ class CircularShift(Transform):
     """Shift with wrapping around. Or, translation on a torus."""
 
     def __init__(self,
-                 shift: Tensor,
+                #  shift: Tensor,
                  lower: Union[float, Tensor],
                  upper: Union[float, Tensor]):
         super().__init__()
@@ -29,8 +29,10 @@ class CircularShift(Transform):
             raise ValueError('`lower` and `upper` must be broadcastable to same '
                              f'shape, but `lower`={lower} and `upper`={upper}') from e
 
+        self.shift = Parameter(
+            data=torch.zeros(size=(1, ), device='cuda', requires_grad=True))
         self.wrap = lambda x: torch.remainder(x - lower, width) + lower
-        self.shift = self.wrap(shift)
+        # self.shift = self.wrap(shift)
 
     def forward(self, inputs: Tensor, context=None) -> Tuple[Tensor, Tensor]:
         outputs = self.wrap(inputs + self.shift)
