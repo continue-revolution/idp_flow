@@ -3,10 +3,7 @@ import time
 import random
 import logging
 import torch
-import rdkit
 import numpy as np
-from logging import Logger
-from tqdm.auto import tqdm
 
 
 class BlackHole(object):
@@ -20,10 +17,13 @@ class BlackHole(object):
 
 class CheckpointManager(object):
 
-    def __init__(self, save_dir, best_k=5, logger=BlackHole()):
+    def __init__(self, save_dir, best_k=5, logger=BlackHole(), log_dir=None):
         super().__init__()
         os.makedirs(save_dir, exist_ok=True)
-        self.save_dir = save_dir
+        if log_dir is not None:
+            save_dir = os.path.join(save_dir, log_dir.split('/')[-1])
+            os.makedirs(save_dir, exist_ok=True)
+        self.save_dir=save_dir
         self.best_k = best_k
         self.ckpts = []
         self.logger = logger
@@ -134,7 +134,7 @@ def get_logger(name, log_dir=None):
     return logger
 
 
-def get_new_log_dir(root='../logs', prefix='', tag=''):
+def get_new_log_dir(root='./logs', prefix='', tag=''):
     fn = time.strftime('%Y_%m_%d__%H_%M_%S', time.localtime())
     if prefix != '':
         fn = prefix + '_' + fn

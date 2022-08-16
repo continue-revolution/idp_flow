@@ -17,11 +17,9 @@ from experiments.configs import get_config
 from experiments.utils import *
 
 flags.DEFINE_enum(name='system', default='_16',
-                  enum_values=['_4', '_8', '_16', '_32', '_64'
+                  enum_values=['_4', '_8', '_14', '_16', '_32', '_64'
                                ], help='System and number of atoms to train.')
-# flags.DEFINE_integer(name='val_freq', default=50)
 flags.DEFINE_integer(name='max_iter', default=int(10**6), help='Max iteration of training.')
-# flags.DEFINE_integer(name='seed', default=2020, help="Seed of random generation.")
 flags.DEFINE_bool(name='reduce_on_plateau', default=True, help='Reduce on plateau or multi-step lr')
 flags.DEFINE_bool(name='resume', default=False, help='Resume from previous model.')
 flags.DEFINE_string(name='tag', default='', help='Tag of the saved model.')
@@ -65,10 +63,13 @@ def main(_):
 
     # Logging
     log_dir = get_new_log_dir(root=FLAGS.log_root,
-                              prefix='IDP_NF', tag=FLAGS.tag)
+                              prefix='', tag=FLAGS.tag)
     logger = get_logger('train', log_dir)
     writer = SummaryWriter(log_dir)
-    ckpt_mgr = CheckpointManager('./pretrained', logger=logger)
+    ckpt_mgr = CheckpointManager(
+        './pretrained',
+        logger=logger,
+        log_dir=log_dir)
     # log_hyperparams(writer, config)
 
     # Model
@@ -77,6 +78,7 @@ def main(_):
         lower=state.lower,
         upper=state.upper,
         **config.model['kwargs'])
+    logging.info(f'Torsion angles: {model._distribution.torsion_angles}')
     if FLAGS.resume:
         ckpt_resume = CheckpointManager(
             './pretrained', logger=logger).load_latest()
@@ -89,7 +91,8 @@ def main(_):
     if FLAGS.reduce_on_plateau:
         scheduler = ReduceLROnPlateau(
             optimizer,
-            factor=config.train['learning_rate_decay_factor'])
+            factor=config.train['learning_rate_decay_factor'],
+            patience=config.train['patience'])
     else:
         scheduler = MultiStepLR(
             optimizer,
@@ -146,7 +149,7 @@ def main(_):
             writer.add_scalar('val/model_entropy',
                               metrics['model_entropy'], iter)
             writer.flush()
-            if is_save:
+            if is_save and loss < config.test['save_threshold']:
                 ckpt_mgr.save(model, loss, iter)
 
     step = 0

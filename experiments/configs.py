@@ -19,6 +19,7 @@ from models.energy import Energy
 FREQUENCIES = {
     4: 8,
     8: 8,
+    14: 8,
     16: 8,
     32: 8,
 }
@@ -31,7 +32,7 @@ def get_config(num_atoms: int):
     config = config_dict.ConfigDict()
     config.state = dict(
         num_atoms=num_atoms,
-        beta=0.5,
+        beta=2,
         lower=-torch.pi,
         upper=torch.pi,
     )
@@ -80,11 +81,13 @@ def get_config(num_atoms: int):
         learning_rate=7e-5,
         learning_rate_decay_steps=[250000, 500000],
         learning_rate_decay_factor=0.1,
+        patience=4,
         seed=42,
         max_gradient_norm=10000.,
     )
     config.test = dict(
         test_every=50,
+        save_threshold=310,
         batch_size=train_batch_size,
     )
     return config
