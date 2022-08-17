@@ -71,8 +71,8 @@ def make_split_coupling_flow(
         # Circular shift.
         if use_circular_shift:
             shift_layer = CircularShift(
-                lower, upper, 
-                circular_shift_init, 
+                lower=lower, upper=upper, 
+                circular_shift_init=circular_shift_init, 
                 logger=logger, device=device)
             sublayers.append(shift_layer)
 

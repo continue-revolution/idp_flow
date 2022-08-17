@@ -6,7 +6,6 @@ from logging import Logger
 import torch
 from nflows.distributions.base import Distribution
 from nflows.utils import torchutils
-# from nflows.distributions import StandardNormal
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem2
 from rdkit.Chem import TorsionFingerprints
@@ -74,6 +73,31 @@ def get_torsion_tuples(mol):
     return nonring_original, nonring_reindexed
 
 
+def set_angles(mol, angle_values, angle_configs):
+    N, K = angle_values.shape
+    confs = mol.GetConformers()
+    for i in range(N):
+        for j in range(K):
+            Chem.rdMolTransforms.SetDihedralRad(
+                confs[i],
+                angle_configs[j, 0].item(),
+                angle_configs[j, 1].item(),
+                angle_configs[j, 2].item(),
+                angle_configs[j, 3].item(),
+                angle_values[i, j].item())
+
+
+def get_energy(mol):
+    Chem2.MMFFSanitizeMolecule(mol)
+    mmff_props = Chem2.MMFFGetMoleculeProperties(mol)
+    energy = []
+    for i in range(mol.GetNumConformers()):
+        ff = Chem2.MMFFGetMoleculeForceField(
+            mol, mmff_props, confId=i)
+        energy.append(ff.CalcEnergy())
+    return torch.tensor(energy)
+
+
 class Base(Distribution):
     """Conformer initialization."""
 
@@ -120,7 +144,10 @@ class Base(Distribution):
 
     def _sample(self, num_samples, context):
         if context is None:
-            return torch.randn(num_samples, *self._shape, device=self._log_z.device)
+            sample_angles = torch.randn(num_samples, *self._shape, device=self._log_z.device)
+            # set_angles(self.mol, sample_angles, self.torsion_angles)
+            # self.logger.debug(f'Energy before model: {get_energy(self.mol)}')
+            return sample_angles
         else:
             # The value of the context is ignored, only its size and device are taken into account.
             context_size = context.shape[0]

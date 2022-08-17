@@ -59,7 +59,7 @@ def get_config(num_atoms: int, logger: Logger):
                     num_layers=24,
                     num_bins=16,
                     conditioner=conditioner,
-                    use_circular_shift=False,
+                    use_circular_shift=True,
                 ),
             ),
             base=dict(
@@ -83,12 +83,12 @@ def get_config(num_atoms: int, logger: Logger):
         learning_rate_decay_steps=[250000, 500000],
         learning_rate_decay_factor=0.1,
         patience=4,
-        seed=42,
+        seed=2020,
         max_gradient_norm=10000.,
     )
     config.test = dict(
         test_every=50,
-        save_threshold=310,
+        save_threshold=50,
         batch_size=train_batch_size,
     )
     return config

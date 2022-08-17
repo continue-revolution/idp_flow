@@ -7,6 +7,7 @@ Energy layer to get the loss.
 import torch
 from torch.autograd import Function
 from torch import Tensor
+from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMoleculeConfs
 from rdkit.Chem.rdchem import Mol
 import rdkit.Chem.AllChem as Chem2
 
@@ -15,13 +16,15 @@ class Energy(Function):
     """Energy loss with forward and backward pass."""
 
     @staticmethod
-    def forward(ctx, input: Tensor, mol: Mol) -> Tensor:
+    def forward(ctx, input: Tensor, mol: Mol, mode='train') -> Tensor:
         """Forward pass of energy. Only mol matters here."""
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         Chem2.MMFFSanitizeMolecule(mol)
         mmff_props = Chem2.MMFFGetMoleculeProperties(mol)
         energy = []
         ff_list = []
+        # if mode == 'test':
+        #     MMFFOptimizeMoleculeConfs(mol)
         for i in range(mol.GetNumConformers()):
             ff = Chem2.MMFFGetMoleculeForceField(
                 mol, mmff_props, confId=i)
@@ -40,4 +43,4 @@ class Energy(Function):
             grad_list.append(torch.tensor(ff.CalcGrad(), device=device).reshape(-1, 3))
         grad_energy = torch.stack(grad_list)
         grad_input = grad_output[:, None, None] * grad_energy
-        return grad_input, None
+        return grad_input, None, None

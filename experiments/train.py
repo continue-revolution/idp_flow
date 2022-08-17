@@ -3,6 +3,7 @@
 
 """Energy-based training of a flow model on an atomistic system."""
 
+from logging import Logger
 from typing import Callable, Dict, Tuple
 from absl import app
 from absl import flags
@@ -37,12 +38,15 @@ def _get_loss(
         trans: Module,
         energy_fn: Callable,
         beta: Tensor,
-        num_samples: int) -> Tuple[Tensor, Dict[str, Tensor]]:
+        num_samples: int,
+        logger: Logger,
+        mode='train') -> Tuple[Tensor, Dict[str, Tensor]]:
     """Returns the loss and stats."""
     samples, log_prob = model.sample_and_log_prob(
         num_samples=num_samples)
     samples_3D = trans(samples)
-    energies = energy_fn(samples_3D, model._distribution.mol)
+    energies = energy_fn(samples_3D, model._distribution.mol, mode)
+    # logger.debug(f'Energy after model: {energies}')
     energy_loss = torch.mean(beta * energies + log_prob)
 
     loss = energy_loss
@@ -108,6 +112,7 @@ def main(_):
             energy_fn=config.energy,
             beta=state.beta,
             num_samples=config.train.batch_size,
+            logger=logger,
         )
         loss.backward()
         optimizer.step()
@@ -136,6 +141,8 @@ def main(_):
                 energy_fn=config.energy,
                 beta=state.beta,
                 num_samples=config.test.batch_size,
+                logger=logger,
+                mode='test'
             )
             scheduler.step(loss)
             metrics = {
