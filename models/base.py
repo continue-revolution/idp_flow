@@ -2,6 +2,7 @@
 
 """Initializer of conformers."""
 
+from logging import Logger
 import torch
 from nflows.distributions.base import Distribution
 from nflows.utils import torchutils
@@ -76,7 +77,11 @@ def get_torsion_tuples(mol):
 class Base(Distribution):
     """Conformer initialization."""
 
-    def __init__(self, num_atoms: int, batch_size: int):
+    def __init__(self, 
+                 num_atoms: int, 
+                 batch_size: int, 
+                 logger: Logger, 
+                 device='cuda'):
         """Initialization of base distribution.
 
         Args:
@@ -84,13 +89,14 @@ class Base(Distribution):
             num_atoms (int): an integer of number of atoms.
         """
         super().__init__()
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = device
+        self.logger = logger
         self.mol = generate_branched_alkane(num_atoms)
         Chem.AllChem.EmbedMultipleConfs(self.mol, numConfs=batch_size)
         Chem.rdForceFieldHelpers.MMFFOptimizeMoleculeConfs(
             self.mol, nonBondedThresh=10., )
         self.torsion_angles, _ = get_torsion_tuples(self.mol)
-        self.torsion_angles = torch.tensor(self.torsion_angles, device=device)
+        self.torsion_angles = torch.tensor(self.torsion_angles, device=self.device)
         shape = [self.torsion_angles.shape[0]]
         self._shape = torch.Size(shape)
 

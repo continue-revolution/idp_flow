@@ -26,9 +26,7 @@ class Energy(Function):
             ff = Chem2.MMFFGetMoleculeForceField(
                 mol, mmff_props, confId=i)
             ff_list.append(ff)
-            # energy += ff.CalcEnergy()
             energy.append(ff.CalcEnergy())
-        # energy = energy / self.mol.GetNumConformers()
         ctx.ff_list = ff_list
         energy = torch.tensor(energy, requires_grad=True, device=device)
         return energy

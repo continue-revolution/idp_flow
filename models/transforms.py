@@ -11,12 +11,13 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import normalize
 from rdkit import Chem
+from logging import Logger
 
 
 class Dihedral2Coord(Module):
     """Transform dihedral angles of a batch of conformers into 3D coordinates."""
 
-    def __init__(self, mol: Mol, angles: Tensor):
+    def __init__(self, mol: Mol, angles: Tensor, logger: Logger, device='cuda'):
         """
         Initialization of D2C layer.
 
@@ -29,6 +30,8 @@ class Dihedral2Coord(Module):
         self.angles = angles
         self.alist = {}
         self.toBeMovedIdxList()
+        self.device = device
+        self.logger = logger
 
     def toBeMovedIdxList(self):
         """
@@ -147,12 +150,11 @@ class Dihedral2Coord(Module):
         N, K = input.shape
         pos = []
         confs = self.mol.GetConformers()
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         for conf in confs:
             pos.append(torch.tensor(
                 conf.GetPositions(),
                 dtype=torch.float32,
-                device=device,
+                device=self.device,
                 requires_grad=True))
         pos = torch.stack(pos)
         # torch.set_printoptions(profile="full")

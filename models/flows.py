@@ -5,10 +5,10 @@ Flow producer.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 """
 
+from logging import Logger
 from typing import Mapping, Any
 import torch
 from torch import Tensor
-from torch.nn import Parameter
 from nflows.transforms import CompositeTransform
 from models.bijectors import CircularShift
 from models.split import SplitCoupling
@@ -23,6 +23,7 @@ def make_split_coupling_flow(
     num_bins: int,
     conditioner: Mapping[str, Any],
     use_circular_shift: bool,
+    logger: Logger,
     circular_shift_init=torch.zeros,
     device='cuda'
 ) -> CompositeTransform:
@@ -59,6 +60,8 @@ def make_split_coupling_flow(
             range_min=lower,
             range_max=upper,
             boundary_slopes='circular',
+            logger=logger,
+            device=device,
             min_bin_size=(upper - lower) * 1e-4)
 
     layers = []
@@ -67,23 +70,24 @@ def make_split_coupling_flow(
 
         # Circular shift.
         if use_circular_shift:
-            # shift = Parameter(
-            #     data=circular_shift_init(size=(1, ), device=device, requires_grad=True))
-            # shift_layer = CircularShift(
-            #     (upper - lower) * shift, lower, upper)
             shift_layer = CircularShift(
-                lower, upper)
+                lower, upper, 
+                circular_shift_init, 
+                logger=logger, device=device)
             sublayers.append(shift_layer)
 
         # Coupling layer.
         coupling_layer = SplitCoupling(
             angles=angles,
             bijector=bijector_fn,
+            logger=logger,
             conditioner=conditioner['constructor'](
                 num_bijector_params=3 * num_bins + 1,
                 lower=lower,
                 upper=upper,
                 angles=angles,
+                logger=logger,
+                device=device,
                 **conditioner['kwargs'])
         )
         sublayers.append(coupling_layer)

@@ -5,6 +5,7 @@ Temporary configs for conformer generation.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids 
 """
 
+from logging import Logger
 import torch
 from ml_collections import config_dict
 from torch.nn import Transformer
@@ -25,8 +26,9 @@ FREQUENCIES = {
 }
 
 
-def get_config(num_atoms: int):
+def get_config(num_atoms: int, logger: Logger):
     """Returns the config."""
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     num_frequencies = FREQUENCIES[num_atoms]
     train_batch_size = 128
     config = config_dict.ConfigDict()
@@ -70,9 +72,8 @@ def get_config(num_atoms: int):
             coord_trans=dict(
                 constructor=Dihedral2Coord,
             ),
-            # energy_layer=dict(
-            #     constructor=Energy,
-            # ),
+            logger=logger,
+            device=device
         ),
     )
     config.energy = Energy.apply

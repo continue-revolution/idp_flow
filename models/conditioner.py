@@ -5,7 +5,7 @@ Conditioner for IDP models.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 """
 
-# import functools
+from logging import Logger
 from typing import Callable, Mapping, Any
 import torch
 from torch import Tensor
@@ -43,41 +43,6 @@ def circular(x: Tensor,
     return torch.concat([cos, sin], axis=-1)
 
 
-# def _reshape_last(x: Tensor, ndims: int, new_shape: Sequence[int]) -> Tensor:
-#     """Reshapes the last `ndims` dimensions of `x` to shape `new_shape`."""
-#     if ndims <= 0:
-#         raise ValueError(
-#             f'Number of dimensions to reshape must be positive, got {ndims}.')
-#     return torch.reshape(x, x.shape[:-ndims] + tuple(new_shape))
-
-
-# def make_equivariant_conditioner(
-#     num_bijector_params: int,
-#     lower: float,
-#     upper: float,
-#     embedding_size: int,
-#     conditioner_constructor: Callable[..., Any],
-#     conditioner_kwargs: Mapping[str, Any],
-#     num_frequencies: int,
-# ) -> Sequential:
-#     """Make a conditioner for the coupling flow."""
-#     # This conditioner assumes that the input is of shape [..., N, D1]. It returns
-#     # an output of shape [..., N, D2, K], where:
-#     #   D2 = `shape_transformed[-1]`
-#     #   K = `num_bijector_params`
-#     conditioner = conditioner_constructor(**conditioner_kwargs)
-#     return Sequential([
-#         functools.partial(
-#             circular, lower=lower, upper=upper,
-#             num_frequencies=num_frequencies),
-#         Linear(embedding_size),
-#         conditioner,
-#         Linear(num_bijector_params),
-#         functools.partial(
-#             _reshape_last, ndims=1, new_shape=(num_bijector_params)),
-#     ])
-
-
 class Conditioner(Module):
     """Make a conditioner for the coupling flow."""
 
@@ -89,14 +54,17 @@ class Conditioner(Module):
                  embedding_size: int,
                  conditioner_constructor: Callable[..., Any],
                  conditioner_kwargs: Mapping[str, Any],
-                 num_frequencies: int):
+                 num_frequencies: int,
+                 logger: Logger,
+                 device='cuda'):
         """
         This conditioner assumes that the input is of shape [..., N, D1]. 
         It returns an output of shape [..., N, K], where:
         K = `num_bijector_params`
         """
         super().__init__()
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.logger = logger
+        self.device = device
         self.linear1 = Linear(in_features=2 * num_frequencies * angles.shape[-1],
                               out_features=embedding_size,
                               device=self.device)
@@ -114,9 +82,6 @@ class Conditioner(Module):
         )
 
     def forward(self, input: Tensor):
-        # self.linear1.zero_grad()
-        # self.conditioner.zero_grad()
-        # self.linear2.zero_grad()
         out = circular(input,
                        **self.circular_kwards,
                        device=self.device)

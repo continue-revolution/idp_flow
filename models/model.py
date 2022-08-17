@@ -5,7 +5,7 @@ Model producer.
 Code adapted from https://github.com/deepmind/flows_for_atomic_solids
 """
 
-import torch
+from logging import Logger
 from typing import Mapping, Any, Tuple
 from nflows.flows import Flow
 from torch.nn import Module
@@ -17,7 +17,8 @@ def make_model(
     bijector: Mapping[str, Any],
     base: Mapping[str, Any],
     coord_trans: Mapping[str, Any],
-    # energy_layer: Mapping[str, Any]
+    logger: Logger,
+    device='cuda'
 ) -> Tuple[Flow, Module]:
     """Constructs a IDP model, with various configuration options.
 
@@ -40,23 +41,24 @@ def make_model(
     Returns:
       A particle model.
     """
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     base_model = base['constructor'](
-        **base['kwargs'])
+        **base['kwargs'], 
+        logger=logger, 
+        device=device)
     bij = bijector['constructor'](
         angles=base_model.torsion_angles,
         lower=lower,
         upper=upper,
+        logger=logger,
+        device=device,
         **bijector['kwargs']).to(device)
 
     model = Flow(bij, base_model)
 
     trans = coord_trans['constructor'](
         mol=base_model.mol,
-        angles=base_model.torsion_angles)
-    # energy = energy_layer['constructor']()
-    # mol=base_model.mol)
-
-    # energy_fn = Sequential(trans, energy)
+        angles=base_model.torsion_angles,
+        logger=logger,
+        device=device)
 
     return model, trans

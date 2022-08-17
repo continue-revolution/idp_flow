@@ -6,6 +6,7 @@ Code adapted from https://github.com/deepmind/distrax
 """
 
 from typing import Tuple
+from logging import Logger
 import torch
 from torch import Tensor
 from nflows.transforms import Transform
@@ -258,9 +259,11 @@ class RationalQuadraticSpline(Transform):
                  params: Tensor,
                  range_min: float,
                  range_max: float,
+                 logger: Logger,
                  boundary_slopes: str = 'unconstrained',
                  min_bin_size: float = 1e-4,
-                 min_knot_slope: float = 1e-4):
+                 min_knot_slope: float = 1e-4,
+                 device='cuda'):
         """Initializes a RationalQuadraticSpline bijector.
         Args:
           params: array of shape `[..., 3 * num_bins + 1]`, the unconstrained
@@ -307,7 +310,8 @@ class RationalQuadraticSpline(Transform):
             will have a slope less than this value.
         """
         super().__init__()
-        self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self._logger = logger
+        self._device = device
         if params.shape[-1] % 3 != 1 or params.shape[-1] < 4:
             raise ValueError(f'The last dimension of `params` must have size'
                              f' `3 * num_bins + 1` and `num_bins` must be at least 1.'

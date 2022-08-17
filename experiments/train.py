@@ -56,10 +56,6 @@ def _get_loss(
 
 def main(_):
     system = FLAGS.system
-    config = get_config(_num_particles(system))
-    # DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    state = config.state
-    seed_all(config.train.seed)
 
     # Logging
     log_dir = get_new_log_dir(root=FLAGS.log_root,
@@ -71,6 +67,11 @@ def main(_):
         logger=logger,
         log_dir=log_dir)
     # log_hyperparams(writer, config)
+
+    # Config
+    config = get_config(_num_particles(system), logger)
+    state = config.state
+    seed_all(config.train.seed)
 
     # Model
     logger.info('Building model...')
