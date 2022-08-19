@@ -23,8 +23,8 @@ class Energy(Function):
         mmff_props = Chem2.MMFFGetMoleculeProperties(mol)
         energy = []
         ff_list = []
-        # if mode == 'test':
-        #     MMFFOptimizeMoleculeConfs(mol)
+        if mode == 'verify':
+            MMFFOptimizeMoleculeConfs(mol)
         for i in range(mol.GetNumConformers()):
             ff = Chem2.MMFFGetMoleculeForceField(
                 mol, mmff_props, confId=i)

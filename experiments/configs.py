@@ -25,11 +25,18 @@ FREQUENCIES = {
     32: 8,
 }
 
+THRESHOLD = {
+    8: 5.8,
+    14: 220,
+    16: 320,
+}
 
-def get_config(num_atoms: int, logger: Logger):
+
+def get_config(num_atoms: int, logger: Logger) -> config_dict.ConfigDict:
     """Returns the config."""
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     num_frequencies = FREQUENCIES[num_atoms]
+    threshold = THRESHOLD[num_atoms]
     train_batch_size = 128
     config = config_dict.ConfigDict()
     config.state = dict(
@@ -82,13 +89,14 @@ def get_config(num_atoms: int, logger: Logger):
         learning_rate=7e-5,
         learning_rate_decay_steps=[250000, 500000],
         learning_rate_decay_factor=0.1,
-        patience=4,
+        patience=6,
+        # 2020 is good
         seed=2020,
         max_gradient_norm=10000.,
     )
     config.test = dict(
-        test_every=50,
-        save_threshold=50,
+        test_every=100,
+        save_threshold=threshold,
         batch_size=train_batch_size,
     )
     return config
