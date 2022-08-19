@@ -1,8 +1,13 @@
+import os
 from ml_collections.config_dict import ConfigDict
 from experiments.configs import get_config
 from experiments.utils import *
 from matplotlib import pyplot as plt
 import numpy as np
+import seaborn as sns
+sns.set_theme(style="darkgrid")
+from rdkit import Chem
+from rdkit.Chem import TorsionFingerprints
 
 log_dir = get_new_log_dir(root='./logs',
                           prefix='', tag='verify')
@@ -11,6 +16,39 @@ config_8_2020 = get_config(8, logger)
 config_16_2020 = get_config(16, logger)
 config_14_2019 = get_config(14, logger)
 config_14_2019.train['seed'] = 2019
+
+
+def tfd_matrix(mol: Chem.Mol) -> np.array:
+    """Calculates the TFD matrix for all conformers in a molecule.
+    """
+    tfd = TorsionFingerprints.GetTFDMatrix(mol, useWeights=False)
+    n = int(np.sqrt(len(tfd)*2))+1
+    idx = np.tril_indices(n, k=-1, m=n)
+    matrix = np.zeros((n, n))
+    matrix[idx] = tfd
+    matrix += np.transpose(matrix)
+    return matrix
+
+def verify_property(mol: Chem.Mol, logdir: str):
+    tfd = tfd_matrix(mol)
+    sns.heatmap(tfd)
+    plt.savefig(f"figs/{logdir}/tfd_heatmap.png")
+    plt.clf()
+
+    nonring, _ = TorsionFingerprints.CalculateTorsionLists(mol)
+    nonring = [list(atoms[0]) for atoms, ang in nonring]
+
+    torsion_angles = []
+    for conf_id in range(mol.GetNumConformers()):
+        conf = mol.GetConformer(conf_id)
+        conf_torsions = [Chem.rdMolTransforms.GetDihedralDeg(conf, *tors) for tors in nonring]
+        torsion_angles.append(conf_torsions)
+    torsion_angles = np.array(torsion_angles)
+
+    corrs = np.corrcoef(torsion_angles.T) # want correlation between angles *not* conformers
+    sns.heatmap(corrs)
+    plt.savefig(f"figs/{logdir}/corrs_heatmap.png")
+    plt.clf()
 
 def verify_model(config: ConfigDict, logdir: str):
 
@@ -53,10 +91,11 @@ def verify_model(config: ConfigDict, logdir: str):
         logger.info(energies.sort().values)
         axs[1].hist(energies.sort().values.cpu().detach().numpy(), bins = bins, histtype='bar', ec='black')
         axs[1].set_title('After train')
-    # axs.set_title(f'{logdir}')
-    # plt.rcParams['savefig.dpi'] = 300
-    # plt.rcParams['figure.dpi'] = 300
-    plt.savefig(f"figs/{logdir}.png")
+    os.makedirs('figs', exist_ok=True)
+    os.makedirs(f'figs/{logdir}', exist_ok=True)
+    plt.savefig(f"figs/{logdir}/energy.png")
+    plt.clf()
+    verify_property(model._distribution.mol, logdir)
 
 verify_model(config_8_2020, '2022_08_18__11_26_54_A8_2020')
 verify_model(config_14_2019, '2022_08_18__08_09_51_A14')
