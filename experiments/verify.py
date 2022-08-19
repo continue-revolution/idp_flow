@@ -46,7 +46,9 @@ def verify_property(mol: Chem.Mol, logdir: str):
     torsion_angles = np.array(torsion_angles)
 
     corrs = np.corrcoef(torsion_angles.T) # want correlation between angles *not* conformers
-    sns.heatmap(corrs)
+    corrs[np.abs(corrs) < 0.01] = 0
+    corrs = np.abs(corrs)
+    sns.heatmap(corrs, cmap="mako")
     plt.savefig(f"figs/{logdir}/corrs_heatmap.png")
     plt.clf()
 
