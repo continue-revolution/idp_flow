@@ -90,7 +90,7 @@ def get_config(num_atoms: int, logger: Logger) -> config_dict.ConfigDict:
         learning_rate_decay_steps=[250000, 500000],
         learning_rate_decay_factor=0.1,
         patience=6,
-        # 2020 is good
+        # 2020 good for A8&A16, 2019 good for A14, 42 good for A16
         seed=2020,
         max_gradient_norm=10000.,
     )

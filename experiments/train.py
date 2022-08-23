@@ -83,7 +83,7 @@ def main(_):
         lower=state.lower,
         upper=state.upper,
         **config.model['kwargs'])
-    logging.info(f'Torsion angles: {model._distribution.torsion_angles}')
+    logger.info(f'Torsion angles: {model._distribution.torsion_angles}')
     if FLAGS.resume:
         ckpt_resume = CheckpointManager(
             './pretrained', logger=logger).load_latest()

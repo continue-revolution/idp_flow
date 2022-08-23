@@ -15,7 +15,9 @@ logger = get_logger('verify', log_dir)
 config_8_2020 = get_config(8, logger)
 config_16_2020 = get_config(16, logger)
 config_14_2019 = get_config(14, logger)
+config_16_42 = get_config(16, logger)
 config_14_2019.train['seed'] = 2019
+config_16_42.train['seed'] = 42
 
 
 def tfd_matrix(mol: Chem.Mol) -> np.array:
@@ -82,7 +84,7 @@ def verify_model(config: ConfigDict, logdir: str):
 
     logger.info(f'After training, {logdir}')
     ckpt_resume = CheckpointManager(
-        './pretrained', logger=logger, log_dir=logdir).load_latest()
+        './pretrained', logger=logger, log_dir=logdir).load_best()
     model.load_state_dict(ckpt_resume['state_dict'])
     with torch.no_grad():
         model.eval()
@@ -99,6 +101,8 @@ def verify_model(config: ConfigDict, logdir: str):
     plt.clf()
     verify_property(model._distribution.mol, logdir)
 
-verify_model(config_8_2020, '2022_08_18__11_26_54_A8_2020')
-verify_model(config_14_2019, '2022_08_18__08_09_51_A14')
-verify_model(config_16_2020, '2022_08_18__11_02_26_A16_2020')
+# verify_model(config_8_2020, '2022_08_18__11_26_54_A8_2020')
+# verify_model(config_14_2019, '2022_08_18__08_09_51_A14')
+# verify_model(config_16_2020, '2022_08_18__11_02_26_A16_2020')
+verify_model(config_16_2020, '2022_08_23__11_38_49_A16_2020')
+verify_model(config_16_42, '2022_08_23__11_26_58_A16_42')
