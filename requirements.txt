@@ -5,3 +5,5 @@ numpy>=1.23.1
 rdkit>=2022.3.4
 torch>=1.12.0+cu113
 tqdm>=4.64.0
+ligninkmc>=0.2.2
+common_wrangler==0.3.5.4

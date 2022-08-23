@@ -2,6 +2,7 @@
 
 """Initializer of conformers."""
 
+from typing import Mapping
 from logging import Logger
 import torch
 from nflows.distributions.base import Distribution
@@ -10,34 +11,6 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem2
 from rdkit.Chem import TorsionFingerprints
 import numpy as np
-import random
-
-
-def generate_branched_alkane(num_atoms: int) -> Chem.Mol:
-    """Generates a branched alkane.
-
-    Parameters
-    ----------
-    num_atoms : int
-        Number of atoms in molecule to be generated.
-    """
-    mol = Chem.MolFromSmiles('CCCC')
-    edit_mol = Chem.RWMol(mol)
-    while edit_mol.GetNumAtoms() < num_atoms:
-        x = Chem.rdchem.Atom(6)
-        randidx = np.random.randint(len(edit_mol.GetAtoms()))
-        atom = edit_mol.GetAtomWithIdx(randidx)
-        if atom.GetDegree() > 2:
-            continue
-        if atom.GetDegree() == 2 and random.random() <= 0.5:
-            continue
-        idx = edit_mol.AddAtom(x)
-        edit_mol.AddBond(idx, randidx, Chem.rdchem.BondType.SINGLE)
-
-    Chem.SanitizeMol(edit_mol)
-    mol = Chem.rdmolops.AddHs(edit_mol.GetMol())
-
-    return mol
 
 
 def get_torsion_tuples(mol):
@@ -104,6 +77,7 @@ class Base(Distribution):
     def __init__(self, 
                  num_atoms: int, 
                  batch_size: int, 
+                 mol_generator: Mapping[int, Chem.Mol],
                  logger: Logger, 
                  device='cuda'):
         """Initialization of base distribution.
@@ -115,7 +89,7 @@ class Base(Distribution):
         super().__init__()
         self.device = device
         self.logger = logger
-        self.mol = generate_branched_alkane(num_atoms)
+        self.mol = mol_generator(num_atoms)
         Chem.AllChem.EmbedMultipleConfs(self.mol, numConfs=batch_size)
         Chem.rdForceFieldHelpers.MMFFOptimizeMoleculeConfs(
             self.mol, nonBondedThresh=10., )

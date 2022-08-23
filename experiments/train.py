@@ -17,8 +17,8 @@ from nflows.flows import Flow
 from experiments.configs import get_config
 from experiments.utils import *
 
-flags.DEFINE_enum(name='system', default='_16',
-                  enum_values=['_4', '_8', '_14', '_16', '_32', '_64'
+flags.DEFINE_enum(name='system', default='A_16_2020',
+                  enum_values=['L_4_2020', 'A_8_2020', 'A_14_2019', 'A_16_2020', 'A_16_42'
                                ], help='System and number of atoms to train.')
 flags.DEFINE_integer(name='max_iter', default=int(10**6), help='Max iteration of training.')
 flags.DEFINE_bool(name='reduce_on_plateau', default=True, help='Reduce on plateau or multi-step lr')
@@ -29,8 +29,18 @@ flags.DEFINE_string(name='log_root', default='./logs', help='Log dir.')
 FLAGS = flags.FLAGS
 
 
-def _num_particles(system: str) -> int:
-    return int(system.split('_')[-1])
+def _split_system(system: str) -> Dict:
+    sys, num_atoms, seed = system.split('_')
+    if sys == 'L':
+        molecular = 'lignin'
+    elif sys == 'A':
+        molecular = 'alkane'
+    elif sys == 'C':
+        molecular = 'chignolin'
+    return {
+        'num_atoms': int(num_atoms), 
+        'molecular': molecular, 
+        'seed': int(seed)}
 
 
 def _get_loss(
@@ -63,7 +73,7 @@ def main(_):
 
     # Logging
     log_dir = get_new_log_dir(root=FLAGS.log_root,
-                              prefix='', tag=FLAGS.tag)
+                              prefix=system, tag=FLAGS.tag)
     logger = get_logger('train', log_dir)
     writer = SummaryWriter(log_dir)
     ckpt_mgr = CheckpointManager(
@@ -73,7 +83,7 @@ def main(_):
     # log_hyperparams(writer, config)
 
     # Config
-    config = get_config(_num_particles(system), logger)
+    config = get_config(logger, **_split_system(system))
     state = config.state
     seed_all(config.train.seed)
 

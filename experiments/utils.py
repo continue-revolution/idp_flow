@@ -137,7 +137,8 @@ def get_logger(name, log_dir=None):
 def get_new_log_dir(root='./logs', prefix='', tag=''):
     fn = time.strftime('%Y_%m_%d__%H_%M_%S', time.localtime())
     if prefix != '':
-        fn = prefix + '_' + fn
+        # fn = prefix + '_' + fn
+        fn = fn + '_' + prefix
     if tag != '':
         fn = fn + '_' + tag
     log_dir = os.path.join(root, fn)
