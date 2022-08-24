@@ -22,7 +22,7 @@ from models.lignin import generate_lignin
 FREQUENCIES = 8
 
 THRESHOLD = {
-    4: 200,
+    4: 460,
     8: 5.8,
     14: 220,
     16: 320,
@@ -92,6 +92,7 @@ def get_config(
     config.energy = Energy.apply
     config.train = dict(
         batch_size=train_batch_size,
+        # 7e-5 good for alkane
         learning_rate=7e-5,
         learning_rate_decay_steps=[250000, 500000],
         learning_rate_decay_factor=0.1,

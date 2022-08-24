@@ -17,11 +17,12 @@ from nflows.flows import Flow
 from experiments.configs import get_config
 from experiments.utils import *
 
-flags.DEFINE_enum(name='system', default='A_16_2020',
-                  enum_values=['L_4_2020', 'A_8_2020', 'A_14_2019', 'A_16_2020', 'A_16_42'
-                               ], help='System and number of atoms to train.')
+# flags.DEFINE_enum(name='system', default='A_16_2020',
+#                   enum_values=['L_4_2020', 'A_8_2020', 'A_14_2019', 'A_16_2020', 'A_16_42'
+#                                ], help='System and number of atoms to train.')
+flags.DEFINE_string(name='system', default='A_16_42', help='System and number of atoms to train.')
 flags.DEFINE_integer(name='max_iter', default=int(10**6), help='Max iteration of training.')
-flags.DEFINE_bool(name='reduce_on_plateau', default=True, help='Reduce on plateau or multi-step lr')
+flags.DEFINE_bool(name='reduce_on_plateau', default=False, help='Reduce on plateau or multi-step lr')
 flags.DEFINE_bool(name='resume', default=False, help='Resume from previous model.')
 flags.DEFINE_string(name='tag', default='', help='Tag of the saved model.')
 flags.DEFINE_string(name='log_root', default='./logs', help='Log dir.')
@@ -107,12 +108,14 @@ def main(_):
         scheduler = ReduceLROnPlateau(
             optimizer,
             factor=config.train['learning_rate_decay_factor'],
-            patience=config.train['patience'])
+            patience=config.train['patience'],
+            verbose=True)
     else:
         scheduler = MultiStepLR(
             optimizer,
             milestones=config.train['learning_rate_decay_steps'],
-            gamma=config.train['learning_rate_decay_factor'])
+            gamma=config.train['learning_rate_decay_factor'],
+            verbose=True)
 
     def train(iter: int):
         model.train()
