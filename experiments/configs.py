@@ -17,6 +17,7 @@ from models.transforms import Dihedral2Coord
 from models.energy import Energy
 from models.branched_alkane import generate_branched_alkane
 from models.lignin import generate_lignin
+from models.pdb_files import generate_pdb
 
 
 FREQUENCIES = 8
@@ -41,7 +42,12 @@ def get_config(
         mol_generator = generate_branched_alkane
     elif molecular == 'lignin':
         mol_generator = generate_lignin
-    threshold = THRESHOLD[num_atoms]
+    elif molecular == 'pdb':
+        mol_generator = generate_pdb
+    if num_atoms in THRESHOLD:  
+        threshold = THRESHOLD[num_atoms]
+    else:
+        threshold = 0
     train_batch_size = 128
     config = ConfigDict()
     config.state = dict(
@@ -103,6 +109,8 @@ def get_config(
     )
     config.test = dict(
         test_every=100,
+        save_mode='best',
+        file_name=f'generated_geom_mols/mol_{num_atoms}.pdb',
         save_threshold=threshold,
         batch_size=train_batch_size,
     )

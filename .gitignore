@@ -2,3 +2,5 @@
 idp_nf_code.ipynb
 logs
 pretrained
+cleaned_geom_mols
+simple_verify.py
