@@ -16,7 +16,7 @@ isPackageNotInstalled() {
 if [ $1 == "--cloud" ]; then
     isPackageNotInstalled conda
     if ! { conda env list | grep 'RUN_ENV'; } >/dev/null 2>&1; then
-        conda create --name nf python=3.9
+        conda create --name nf python=3.10
     fi
     conda activate nf
     install --upgrade pip

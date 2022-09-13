@@ -7,6 +7,7 @@ from logging import Logger
 from typing import Callable, Dict, Tuple
 from absl import app
 from absl import flags
+from pathlib import Path
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -22,11 +23,12 @@ from models.pdb_files import save_pdb
 #                   enum_values=['L_4_2020', 'A_8_2020', 'A_14_2019', 'A_16_2020', 'A_16_42'
 #                                ], help='System and number of atoms to train.')
 flags.DEFINE_string(name='system', default='A_16_42', help='System and number of atoms to train.')
-flags.DEFINE_integer(name='max_iter', default=int(10**6), help='Max iteration of training.')
+flags.DEFINE_integer(name='max_iter', default=int(2000), help='Max iteration of training.')
 flags.DEFINE_bool(name='reduce_on_plateau', default=True, help='Reduce on plateau or multi-step lr')
 flags.DEFINE_bool(name='resume', default=False, help='Resume from previous model.')
 flags.DEFINE_string(name='tag', default='', help='Tag of the saved model.')
 flags.DEFINE_string(name='log_root', default='./logs', help='Log dir.')
+flags.DEFINE_integer(name='start_mol', default=0, help='Start id of molecules to train.')
 
 FLAGS = flags.FLAGS
 
@@ -72,8 +74,9 @@ def _get_loss(
     return loss, stats
 
 
-def main(_):
-    system = FLAGS.system
+def work(system='None'):
+    if system == 'None':
+        system = FLAGS.system
 
     # Logging
     log_dir = get_new_log_dir(root=FLAGS.log_root,
@@ -92,6 +95,7 @@ def main(_):
     seed_all(config.train.seed)
 
     # Model
+    logger.info(f'System {system} start working!')
     logger.info('Building model...')
     model, trans = config.model['constructor'](
         lower=state.lower,
@@ -194,8 +198,13 @@ def main(_):
 
         step += 1
 
-    logger.info('Done')
+    logger.info(f'System {system} done!')
 
+def main(_):
+    pathlist = Path('cleaned_geom_mols').glob('mol_*.pdb')[FLAGS.start_mol:]
+    for path in pathlist:
+        mol_id = int(str(path).split('/')[-1].split('_')[-1].split('.')[0])
+        work(f'P_{mol_id}_2022')
 
 if __name__ == '__main__':
     app.run(main)
